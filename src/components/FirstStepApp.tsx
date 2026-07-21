@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Download, HeartHandshake,
-  LockKeyhole, MessageCircle, Phone, RotateCcw, ShieldCheck, Sparkles,
-  ShieldAlert,
+  Eye, ListTodo, LockKeyhole, MessageCircle, Phone, RotateCcw, ShieldCheck, Sparkles,
+  ShieldAlert, Timer, Wind,
 } from "lucide-react";
 import { supportResources } from "@/config/supportResources";
 import type { ChatResponse, ConversationContext, Intent, InterventionType, Language, RiskLevel } from "@/types/safety";
@@ -53,6 +54,10 @@ const copy = {
     highRisk: "Похоже, тебе сейчас может быть очень тяжело. Не оставайся с этим в одиночку.",
     breathing: "60 секунд мягкого дыхания",
     breathingText: "Попробуй следовать ритму, если тебе комфортно. Это не лечение — только короткая пауза для внимания к себе.",
+    breathLong: "Длинный выдох",
+    breathLongPattern: "вдох 4 · выдох 6",
+    breathBox: "Ровный квадрат",
+    breathBoxPattern: "вдох 4 · пауза 4 · выдох 4 · пауза 4",
     inhale: "Вдох",
     hold: "Задержка",
     exhale: "Выдох",
@@ -64,13 +69,38 @@ const copy = {
     groundingText: "Назови 5 вещей, которые видишь, 4 — которых можешь коснуться, 3 звука, 2 запаха и 1 вкус.",
     reflection: "Короткая пауза",
     reflectionText: "Попробуй назвать: что я чувствую, что мне сейчас нужно и какой самый добрый шаг я могу сделать для себя?",
+    studyReset: "Разгрузка 3–2–1",
+    studyResetText: "Выгрузи мысли из головы: три дела, два дела, которые могут подождать, и одно действие на ближайшие пять минут.",
+    studyResetThree: "3 дела, которые давят",
+    studyResetTwo: "2 дела могут подождать",
+    studyResetOne: "1 действие на пять минут",
+    studyResetPlaceholder: "Коротко, своими словами",
+    studyResetReady: "План готов. Начни только с последней строки — остальное пока не нужно решать.",
+    exercisePrivacy: "Записи остаются только в этой вкладке.",
+    screenBreak: "Перезагрузка 20–20–20",
+    screenBreakText: "Отведи взгляд от экрана на предмет вдали примерно на 20 секунд и мягко расслабь плечи.",
+    screenBreakStart: "Начать 20 секунд",
+    screenBreakPause: "Пауза",
+    screenBreakResume: "Продолжить",
+    screenBreakDone: "Готово. Теперь вернись только к одному небольшому действию.",
+    firstStepsOpen: "Выбрать первый шаг",
+    firstStepsClose: "Скрыть варианты",
+    firstStepsTitle: "Что поможет прямо сейчас?",
+    firstStepsLead: "Можно выбрать упражнение самому — без нового сообщения и ожидания ответа.",
+    firstStepCalm: "Снизить напряжение",
+    firstStepCalmHint: "два ритма дыхания",
+    firstStepFocus: "Вернуть фокус",
+    firstStepFocusHint: "спринт на 15 минут",
+    firstStepUnload: "Разгрузить голову",
+    firstStepUnloadHint: "план 3–2–1",
+    firstStepEyes: "Отдохнуть от экрана",
+    firstStepEyesHint: "пауза 20–20–20",
     available: "доступно",
     needsSetup: "нужно настроить",
     otherTopics: "Другие темы",
     userLabel: "ты",
     composerSafety: "сообщение не сохраняется приложением",
     interventionTag: "ОДИН МАЛЕНЬКИЙ ШАГ",
-    breathPattern: "вдох 4 · пауза 2 · выдох 6",
     trustedMessage: "Мне сейчас непросто. Можешь побыть на связи?",
     resourcesHint: "Круглосуточная конфиденциальная помощь: 111",
     dangerHint: "При непосредственной опасности звони 112",
@@ -110,8 +140,11 @@ const copy = {
     tourDone: "Понятно, начать",
     tourPromptsTitle: "Можно начать без долгих объяснений",
     tourPromptsText: "Выбери готовую тему — она отправится как первое сообщение и поможет задать направление разговору.",
+    tourPromptsActiveText: "Быстрые темы остаются доступны и после начала разговора — они помогают спокойно сменить направление.",
     tourComposerTitle: "Или напиши своими словами",
     tourComposerText: "Опиши ситуацию в поле внизу. Стрелка отправляет сообщение, Enter тоже отправляет, а Shift + Enter переносит строку.",
+    tourToolkitTitle: "Первый шаг можно выбрать самому",
+    tourToolkitText: "Здесь доступны дыхание, фокус-спринт, разгрузка 3–2–1 и пауза для глаз — они работают прямо в браузере.",
     tourDownloadTitle: "Сохрани разговор, если нужно",
     tourDownloadText: "Кнопка со стрелкой вниз скачивает переписку в TXT только на твоё устройство — без session ID и технических данных.",
     tourSupportTitle: "Помощь человека всегда рядом",
@@ -160,6 +193,10 @@ const copy = {
     highRisk: "Қазір саған өте ауыр болуы мүмкін. Мұны жалғыз көтерме.",
     breathing: "60 секунд жұмсақ тыныс алу",
     breathingText: "Ыңғайлы болса, ырғаққа еріп көр. Бұл ем емес — өзіңе назар аударуға арналған қысқа үзіліс.",
+    breathLong: "Ұзақ дем шығару",
+    breathLongPattern: "дем алу 4 · дем шығару 6",
+    breathBox: "Біркелкі шаршы",
+    breathBoxPattern: "дем алу 4 · үзіліс 4 · дем шығару 4 · үзіліс 4",
     inhale: "Дем ал",
     hold: "Ұста",
     exhale: "Дем шығар",
@@ -171,13 +208,38 @@ const copy = {
     groundingText: "Көріп тұрған 5 нәрсені, ұстай алатын 4 нәрсені, 3 дыбысты, 2 иісті және 1 дәмді ата.",
     reflection: "Қысқа үзіліс",
     reflectionText: "Өзіңнен сұрап көр: қазір не сезіп тұрмын, маған не керек және өзіме жасай алатын ең мейірімді қадам қандай?",
+    studyReset: "3–2–1 жеңілдету",
+    studyResetText: "Ойыңдағыны түсір: қысым жасап тұрған үш іс, күте алатын екі іс және келесі бес минуттағы бір әрекет.",
+    studyResetThree: "Қысым жасап тұрған 3 іс",
+    studyResetTwo: "Күте алатын 2 іс",
+    studyResetOne: "Бес минутқа 1 әрекет",
+    studyResetPlaceholder: "Қысқа, өз сөзіңмен",
+    studyResetReady: "Жоспар дайын. Тек соңғы жолдан баста — қалғанын әзірге шешудің қажеті жоқ.",
+    exercisePrivacy: "Жазбалар тек осы бетте қалады.",
+    screenBreak: "20–20–20 үзілісі",
+    screenBreakText: "Экраннан көзді алыстатып, шамамен 20 секунд алыс нысанға қара және иығыңды жайлап босат.",
+    screenBreakStart: "20 секундты бастау",
+    screenBreakPause: "Үзіліс",
+    screenBreakResume: "Жалғастыру",
+    screenBreakDone: "Дайын. Енді тек бір шағын әрекетке орал.",
+    firstStepsOpen: "Бірінші қадамды таңдау",
+    firstStepsClose: "Нұсқаларды жасыру",
+    firstStepsTitle: "Дәл қазір не көмектеседі?",
+    firstStepsLead: "Жаңа хабарлама жібермей және жауап күтпей, жаттығуды өзің таңдай аласың.",
+    firstStepCalm: "Кернеуді азайту",
+    firstStepCalmHint: "екі тыныс ырғағы",
+    firstStepFocus: "Назарды қайтару",
+    firstStepFocusHint: "15 минуттық спринт",
+    firstStepUnload: "Ойды жеңілдету",
+    firstStepUnloadHint: "3–2–1 жоспары",
+    firstStepEyes: "Экраннан демалу",
+    firstStepEyesHint: "20–20–20 үзілісі",
     available: "қолжетімді",
     needsSetup: "орнату қажет",
     otherTopics: "Басқа тақырыптар",
     userLabel: "сен",
     composerSafety: "хабарлама қолданбада сақталмайды",
     interventionTag: "БІР КІШКЕНТАЙ ҚАДАМ",
-    breathPattern: "дем алу 4 · үзіліс 2 · дем шығару 6",
     trustedMessage: "Маған қазір қиын. Біраз байланыста бола аласың ба?",
     resourcesHint: "Тәулік бойы құпия көмек: 111",
     dangerHint: "Тікелей қауіп болса, 112 нөміріне қоңырау шал",
@@ -217,8 +279,11 @@ const copy = {
     tourDone: "Түсінікті, бастау",
     tourPromptsTitle: "Ұзақ түсіндірмей бастауға болады",
     tourPromptsText: "Дайын тақырыпты таңда — ол алғашқы хабарлама ретінде жіберіліп, әңгімеге бағыт береді.",
+    tourPromptsActiveText: "Жылдам тақырыптар әңгіме басталғаннан кейін де қолжетімді — олар бағытты жайлап өзгертуге көмектеседі.",
     tourComposerTitle: "Немесе өз сөзіңмен жаз",
     tourComposerText: "Төмендегі өріске жағдайды жаз. Көрсеткі хабарламаны жібереді, Enter де жібереді, ал Shift + Enter жаңа жол ашады.",
+    tourToolkitTitle: "Бірінші қадамды өзің таңдай аласың",
+    tourToolkitText: "Мұнда тыныс алу, фокус-спринт, 3–2–1 жеңілдету және көзге арналған үзіліс бар — бәрі браузерде жұмыс істейді.",
     tourDownloadTitle: "Қажет болса, әңгімені сақта",
     tourDownloadText: "Төмен бағытталған көрсеткі әңгімені TXT түрінде тек құрылғыңа жүктейді — session ID мен техникалық деректерсіз.",
     tourSupportTitle: "Адам көмегі әрқашан жақын",
@@ -254,14 +319,22 @@ const intentLabels: Record<Language, Partial<Record<Intent, string>>> = {
   },
 };
 
-const breathingPhases = [
-  { key: "inhale" as const, seconds: 4 },
-  { key: "hold" as const, seconds: 2 },
-  { key: "exhale" as const, seconds: 6 },
-];
-
 type PromptContext = "initial" | "anxious" | "lonely" | "studies" | "talk";
 type QuickPrompt = { label: string; context: PromptContext };
+type BreathingPattern = "long" | "box";
+
+const breathingPatternPhases = {
+  long: [
+    { key: "inhale" as const, seconds: 4 },
+    { key: "exhale" as const, seconds: 6 },
+  ],
+  box: [
+    { key: "inhale" as const, seconds: 4 },
+    { key: "hold" as const, seconds: 4 },
+    { key: "exhale" as const, seconds: 4 },
+    { key: "hold" as const, seconds: 4 },
+  ],
+} as const;
 
 const promptSets: Record<Language, Record<PromptContext, QuickPrompt[]>> = {
   ru: {
@@ -537,7 +610,7 @@ function Landing({ language, t, onStart, onSupport }: { language: Language; t: (
             preload="auto"
             poster="/firststep-particle-frame-01.webp"
           >
-            <source src="/firststep-particle-loop.mp4" type="video/mp4" />
+            <source src="/firststep-liquid-glass.mp4" type="video/mp4" />
           </video>
         </div>
         <div className="hero-vignette" aria-hidden="true" />
@@ -696,6 +769,7 @@ function Onboarding({ language, t, agreed, setAgreed, onContinue, onBack }: { la
 function Chat({ language, t, messages, input, setInput, pending, sendMessage, cancelRequest, riskLevel, intervention, setIntervention, conversation, retryMessage, onSupport }: { language: Language; t: (key: keyof typeof copy.ru) => string; messages: ChatMessage[]; input: string; setInput: (value: string) => void; pending: boolean; sendMessage: (message?: string) => Promise<void>; cancelRequest: () => void; riskLevel: RiskLevel | null; intervention: InterventionType | null; setIntervention: (value: InterventionType | null) => void; conversation: ConversationContext | null; retryMessage: string | null; onSupport: () => void }) {
   const [promptContext, setPromptContext] = useState<PromptContext>("initial");
   const [downloaded, setDownloaded] = useState(false);
+  const [firstStepPickerOpen, setFirstStepPickerOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -708,9 +782,11 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ca
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const downloadStatusTimerRef = useRef<number | null>(null);
   const tourDialogRef = useRef<HTMLElement | null>(null);
+  const tourOriginScrollRef = useRef(0);
   const quickPrompts = promptSets[language][promptContext];
   const tourSteps = [
-    { target: "prompts", title: t("tourPromptsTitle"), text: t("tourPromptsText") },
+    { target: "prompts", title: t("tourPromptsTitle"), text: messages.length > 1 ? t("tourPromptsActiveText") : t("tourPromptsText") },
+    { target: "toolkit", title: t("tourToolkitTitle"), text: t("tourToolkitText") },
     { target: "composer", title: t("tourComposerTitle"), text: t("tourComposerText") },
     { target: "download", title: t("tourDownloadTitle"), text: t("tourDownloadText") },
     { target: "support", title: t("tourSupportTitle"), text: t("tourSupportText") },
@@ -718,11 +794,12 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ca
   const activeTourStep = tourSteps[tourStep];
 
   useEffect(() => {
+    if (tourOpen) return;
     messagesEndRef.current?.scrollIntoView({
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
       block: "end",
     });
-  }, [messages, pending, intervention]);
+  }, [messages, pending, intervention, tourOpen]);
 
   useEffect(() => () => {
     if (downloadStatusTimerRef.current) window.clearTimeout(downloadStatusTimerRef.current);
@@ -736,6 +813,11 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ca
       if (event.key === "Escape") {
         try { window.localStorage.setItem("firststep-product-tour-v1", "done"); } catch { /* localStorage may be unavailable */ }
         setTourOpen(false);
+        const top = tourOriginScrollRef.current;
+        window.requestAnimationFrame(() => window.scrollTo({
+          top,
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        }));
         return;
       }
       if (event.key !== "Tab") return;
@@ -761,7 +843,20 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ca
     };
   }, [tourOpen]);
 
+  useEffect(() => {
+    if (!tourOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(`[data-tour-target="${activeTourStep.target}"]`);
+      target?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: activeTourStep.target === "download" || activeTourStep.target === "support" ? "start" : "end",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeTourStep.target, tourOpen]);
+
   const openTour = () => {
+    tourOriginScrollRef.current = window.scrollY;
     setTourStep(0);
     setTourOpen(true);
   };
@@ -769,6 +864,11 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ca
   const closeTour = () => {
     try { window.localStorage.setItem("firststep-product-tour-v1", "done"); } catch { /* localStorage may be unavailable */ }
     setTourOpen(false);
+    const top = tourOriginScrollRef.current;
+    window.requestAnimationFrame(() => window.scrollTo({
+      top,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    }));
   };
 
   const tourClass = (target: (typeof tourSteps)[number]["target"]) => tourOpen && activeTourStep.target === target ? " tour-target" : "";
@@ -803,7 +903,7 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ca
   return (
     <div className="chat-layout section-wrap">
       <section className="chat-panel">
-        <div className="chat-heading"><div><span className="eyebrow">{t("chatTitle")}</span><h1>{t("anonymous")}</h1></div><div className="chat-header-actions"><button className="support-icon-button tour-help-button" onClick={openTour} aria-label={t("tourOpen")} title={t("tourOpen")}><CircleHelp size={17} /></button><button className={`support-icon-button ${downloaded ? "downloaded" : ""}${tourClass("download")}`} onClick={downloadChat} aria-label={t("downloadChat")} title={t("downloadChat")}>{downloaded ? <Check size={17} /> : <Download size={17} />}</button><button className={`support-icon-button${tourClass("support")}`} onClick={onSupport} aria-label={t("urgent")} title={t("urgent")}><Phone size={17} /></button></div></div>
+        <div className="chat-heading"><div><span className="eyebrow">{t("chatTitle")}</span><h1>{t("anonymous")}</h1></div><div className="chat-header-actions"><button className="support-icon-button tour-help-button" onClick={openTour} aria-label={t("tourOpen")} title={t("tourOpen")}><CircleHelp size={17} /></button><button data-tour-target="download" className={`support-icon-button ${downloaded ? "downloaded" : ""}${tourClass("download")}`} onClick={downloadChat} aria-label={t("downloadChat")} title={t("downloadChat")}>{downloaded ? <Check size={17} /> : <Download size={17} />}</button><button data-tour-target="support" className={`support-icon-button${tourClass("support")}`} onClick={onSupport} aria-label={t("urgent")} title={t("urgent")}><Phone size={17} /></button></div></div>
         <span className="sr-only" role="status" aria-live="polite">{downloaded ? t("chatDownloaded") : ""}</span>
         <div className="privacy-banner"><LockKeyhole size={14} /> {t("privacy")}</div>
         {conversation && conversation.topics.length > 0 && <aside className="context-map" aria-label={t("contextMap")}><span className="context-map-label"><Sparkles size={14} /> {t("contextMap")}</span><div className="context-topics">{conversation.topics.map((intent) => intentLabels[language][intent] && <span className={intent === conversation.primaryIntent ? "active" : ""} key={intent}>{intentLabels[language][intent]}</span>)}</div>{conversation.topicShift && <small>{t("contextShift")}</small>}</aside>}
@@ -815,16 +915,28 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ca
           {retryMessage && !pending && <button className="retry-inline" onClick={() => void sendMessage(retryMessage)}><RotateCcw size={15} /> {t("retry")}</button>}
           <div ref={messagesEndRef} />
         </div>
-        <div className={`quick-prompts${tourClass("prompts")}`} aria-label={language === "ru" ? "Быстрые ответы" : "Жылдам жауаптар"}>
+        <div data-tour-target="prompts" className={`quick-prompts${tourClass("prompts")}`} aria-label={language === "ru" ? "Быстрые ответы" : "Жылдам жауаптар"}>
           {quickPrompts.map((prompt) => <button key={prompt.label} onClick={() => { setPromptContext(prompt.context); void sendMessage(prompt.label); }} disabled={pending}>{prompt.label}</button>)}
           {promptContext !== "initial" && <button className="quick-prompts-reset" onClick={() => setPromptContext("initial")} disabled={pending}>{t("otherTopics")}</button>}
         </div>
-        <form className={`composer${tourClass("composer")}`} onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendMessage(); } }} placeholder={t("placeholder")} rows={1} maxLength={2000} disabled={pending} aria-label={t("placeholder")} /><button className="send-button" type="submit" disabled={!input.trim() || pending} aria-label={t("send")}><ArrowRight size={18} /></button></form>
+        <FirstStepPicker open={firstStepPickerOpen} onToggle={() => setFirstStepPickerOpen((value) => !value)} onSelect={(type) => { setIntervention(type); setFirstStepPickerOpen(false); }} disabled={pending} t={t} tourClass={tourClass("toolkit")} />
+        <form data-tour-target="composer" className={`composer${tourClass("composer")}`} onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendMessage(); } }} placeholder={t("placeholder")} rows={1} maxLength={2000} disabled={pending} aria-label={t("placeholder")} /><button className="send-button" type="submit" disabled={!input.trim() || pending} aria-label={t("send")}><ArrowRight size={18} /></button></form>
         <div className="composer-foot"><span>⟡ {2000 - input.length}</span><span>{t("composerSafety")}</span></div>
-        {tourOpen && <><div className="tour-backdrop" aria-hidden="true" /><section ref={tourDialogRef} className={`product-tour tour-dialog-${activeTourStep.target}`} role="dialog" aria-modal="true" aria-labelledby="product-tour-title" aria-describedby="product-tour-description" tabIndex={-1}><div className="tour-topline"><span>{t("tourStep")} {tourStep + 1} / {tourSteps.length}</span><button type="button" onClick={closeTour}>{t("tourSkip")}</button></div><div className="tour-icon" aria-hidden="true"><CircleHelp size={20} /></div><span className="tour-eyebrow">{t("tourTitle")}</span><h2 id="product-tour-title">{activeTourStep.title}</h2><p id="product-tour-description" aria-live="polite">{activeTourStep.text}</p><div className="tour-progress" aria-hidden="true">{tourSteps.map((step, index) => <span className={index === tourStep ? "active" : ""} key={step.target} />)}</div><div className="tour-actions">{tourStep > 0 && <button type="button" className="secondary-button" onClick={() => setTourStep((value) => value - 1)}><ArrowLeft size={15} /> {t("tourBack")}</button>}<button type="button" className="primary-button" onClick={() => { if (tourStep === tourSteps.length - 1) closeTour(); else setTourStep((value) => value + 1); }}>{tourStep === tourSteps.length - 1 ? t("tourDone") : t("tourNext")} {tourStep < tourSteps.length - 1 && <ArrowRight size={15} />}</button></div></section></>}
+        {tourOpen && typeof document !== "undefined" && createPortal(<><div className="tour-backdrop" aria-hidden="true" /><section ref={tourDialogRef} className={`product-tour tour-dialog-${activeTourStep.target}`} role="dialog" aria-modal="true" aria-labelledby="product-tour-title" aria-describedby="product-tour-description" tabIndex={-1}><div className="tour-topline"><span>{t("tourStep")} {tourStep + 1} / {tourSteps.length}</span><button type="button" onClick={closeTour}>{t("tourSkip")}</button></div><div className="tour-icon" aria-hidden="true"><CircleHelp size={20} /></div><span className="tour-eyebrow">{t("tourTitle")}</span><h2 id="product-tour-title">{activeTourStep.title}</h2><p id="product-tour-description" aria-live="polite">{activeTourStep.text}</p><div className="tour-progress" aria-hidden="true">{tourSteps.map((step, index) => <span className={index === tourStep ? "active" : ""} key={step.target} />)}</div><div className="tour-actions">{tourStep > 0 && <button type="button" className="secondary-button" onClick={() => setTourStep((value) => value - 1)}><ArrowLeft size={15} /> {t("tourBack")}</button>}<button type="button" className="primary-button" onClick={() => { if (tourStep === tourSteps.length - 1) closeTour(); else setTourStep((value) => value + 1); }}>{tourStep === tourSteps.length - 1 ? t("tourDone") : t("tourNext")} {tourStep < tourSteps.length - 1 && <ArrowRight size={15} />}</button></div></section></>, document.body)}
       </section>
     </div>
   );
+}
+
+function FirstStepPicker({ open, onToggle, onSelect, disabled, t, tourClass }: { open: boolean; onToggle: () => void; onSelect: (type: InterventionType) => void; disabled: boolean; t: (key: keyof typeof copy.ru) => string; tourClass: string }) {
+  const options: Array<{ type: InterventionType; title: string; hint: string; icon: React.ReactNode }> = [
+    { type: "BREATHING", title: t("firstStepCalm"), hint: t("firstStepCalmHint"), icon: <Wind size={16} /> },
+    { type: "NEXT_STEP", title: t("firstStepFocus"), hint: t("firstStepFocusHint"), icon: <Timer size={16} /> },
+    { type: "STUDY_RESET", title: t("firstStepUnload"), hint: t("firstStepUnloadHint"), icon: <ListTodo size={16} /> },
+    { type: "SCREEN_BREAK", title: t("firstStepEyes"), hint: t("firstStepEyesHint"), icon: <Eye size={16} /> },
+  ];
+
+  return <section data-tour-target="toolkit" className={`first-step-picker${open ? " open" : ""}${tourClass}`} aria-labelledby="first-step-picker-title"><button type="button" className="first-step-picker-toggle" onClick={onToggle} disabled={disabled} aria-expanded={open}><span><Sparkles size={15} /> {open ? t("firstStepsClose") : t("firstStepsOpen")}</span><ChevronRight size={16} /></button>{open && <div className="first-step-picker-body"><div><h2 id="first-step-picker-title">{t("firstStepsTitle")}</h2><p>{t("firstStepsLead")}</p></div><div className="first-step-options">{options.map((option) => <button type="button" key={option.type} onClick={() => onSelect(option.type)}><span className="first-step-option-icon">{option.icon}</span><span><b>{option.title}</b><small>{option.hint}</small></span><ArrowRight size={15} /></button>)}</div></div>}</section>;
 }
 
 function InterventionCard({ type, t, onClose }: { type: InterventionType; t: (key: keyof typeof copy.ru) => string; onClose: () => void }) {
@@ -832,11 +944,39 @@ function InterventionCard({ type, t, onClose }: { type: InterventionType; t: (ke
     BREATHING: { title: t("breathing"), text: t("breathingText") },
     GROUNDING: { title: t("grounding"), text: t("groundingText") },
     NEXT_STEP: { title: t("nextStep"), text: t("nextStepText") },
+    STUDY_RESET: { title: t("studyReset"), text: t("studyResetText") },
+    SCREEN_BREAK: { title: t("screenBreak"), text: t("screenBreakText") },
     REACH_OUT: { title: t("reachOut"), text: t("reachOutText") },
     REFLECTION: { title: t("reflection"), text: t("reflectionText") },
   };
   const item = data[type];
-  return <div className="intervention-card"><div className="intervention-top"><span className="intervention-tag">{t("interventionTag")}</span><button onClick={onClose} className="close-button" aria-label={t("skip")}>×</button></div><h3>{item.title}</h3><p>{item.text}</p>{type === "BREATHING" ? <BreathingExercise t={t} /> : type === "NEXT_STEP" ? <FocusSprint t={t} /> : <button className="secondary-button" onClick={onClose}>{t("skip")} <Check size={15} /></button>}</div>;
+  return <div className="intervention-card"><div className="intervention-top"><span className="intervention-tag">{t("interventionTag")}</span><button onClick={onClose} className="close-button" aria-label={t("skip")}>×</button></div><h3>{item.title}</h3><p>{item.text}</p>{type === "BREATHING" ? <BreathingExercise t={t} /> : type === "NEXT_STEP" ? <FocusSprint t={t} /> : type === "STUDY_RESET" ? <StudyReset t={t} /> : type === "SCREEN_BREAK" ? <ScreenBreak t={t} /> : <button className="secondary-button" onClick={onClose}>{t("skip")} <Check size={15} /></button>}</div>;
+}
+
+function StudyReset({ t }: { t: (key: keyof typeof copy.ru) => string }) {
+  const [entries, setEntries] = useState(["", "", ""]);
+  const labels = [t("studyResetThree"), t("studyResetTwo"), t("studyResetOne")];
+  const ready = entries.every((entry) => entry.trim());
+  return <div className="study-reset"><div className="study-reset-fields">{labels.map((label, index) => <label key={label}><span>{label}</span><input value={entries[index]} onChange={(event) => setEntries((current) => current.map((entry, entryIndex) => entryIndex === index ? event.target.value : entry))} placeholder={t("studyResetPlaceholder")} maxLength={90} /></label>)}</div>{ready && <p className="study-reset-ready" role="status"><Check size={15} /> {t("studyResetReady")}</p>}<small>{t("exercisePrivacy")}</small></div>;
+}
+
+function ScreenBreak({ t }: { t: (key: keyof typeof copy.ru) => string }) {
+  const [seconds, setSeconds] = useState(20);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    if (!active) return;
+    const timer = window.setInterval(() => setSeconds((value) => {
+      if (value <= 1) {
+        setActive(false);
+        return 0;
+      }
+      return value - 1;
+    }), 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  return <div className="screen-break"><div className={`screen-break-orbit${active ? " active" : ""}`} aria-hidden="true"><Eye size={22} /><strong>{seconds}</strong></div><div><button type="button" className="secondary-button" onClick={() => { if (seconds === 0) setSeconds(20); setActive((value) => !value); }}>{active ? t("screenBreakPause") : seconds < 20 && seconds > 0 ? t("screenBreakResume") : t("screenBreakStart")}</button>{seconds === 0 && <p className="screen-break-done" role="status"><Check size={15} /> {t("screenBreakDone")}</p>}</div></div>;
 }
 
 function FocusSprint({ t }: { t: (key: keyof typeof copy.ru) => string }) {
@@ -869,9 +1009,11 @@ function FocusSprint({ t }: { t: (key: keyof typeof copy.ru) => string }) {
 
 function BreathingExercise({ t }: { t: (key: keyof typeof copy.ru) => string }) {
   const [active, setActive] = useState(false);
+  const [patternId, setPatternId] = useState<BreathingPattern>("long");
   const [phaseIndex, setPhaseIndex] = useState(0);
-  const [seconds, setSeconds] = useState(breathingPhases[0].seconds);
+  const [seconds, setSeconds] = useState<number>(breathingPatternPhases.long[0].seconds);
   const [totalSeconds, setTotalSeconds] = useState(60);
+  const phases = breathingPatternPhases[patternId];
   useEffect(() => {
     if (!active) return;
     const timer = window.setInterval(() => {
@@ -879,23 +1021,31 @@ function BreathingExercise({ t }: { t: (key: keyof typeof copy.ru) => string }) 
         if (value <= 1) {
           setActive(false);
           setPhaseIndex(0);
-          setSeconds(breathingPhases[0].seconds);
+          setSeconds(phases[0].seconds);
           return 60;
         }
         return value - 1;
       });
       setSeconds((value) => {
         if (value <= 1) {
-          setPhaseIndex((index) => (index + 1) % breathingPhases.length);
-          return breathingPhases[(phaseIndex + 1) % breathingPhases.length].seconds;
+          setPhaseIndex((index) => (index + 1) % phases.length);
+          return phases[(phaseIndex + 1) % phases.length].seconds;
         }
         return value - 1;
       });
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [active, phaseIndex]);
-  const phase = breathingPhases[phaseIndex];
-  return <div className="breathing-widget"><button className={`breath-circle ${active ? "breathing" : ""}`} onClick={() => { setTotalSeconds(60); setActive(true); }}><span>{active ? seconds : totalSeconds}</span><small>{active ? t(phase.key) : t("tryExercise")}</small></button><div className="breath-controls">{active && <button onClick={() => { setActive(false); setPhaseIndex(0); setSeconds(4); setTotalSeconds(60); }}><RotateCcw size={13} /> {t("skip")}</button>}<span>{t("breathPattern")}</span></div></div>;
+  }, [active, phaseIndex, phases]);
+  const phase = phases[phaseIndex];
+  const patternLabel = patternId === "long" ? t("breathLongPattern") : t("breathBoxPattern");
+  const selectPattern = (nextPattern: BreathingPattern) => {
+    setActive(false);
+    setPatternId(nextPattern);
+    setPhaseIndex(0);
+    setSeconds(breathingPatternPhases[nextPattern][0].seconds);
+    setTotalSeconds(60);
+  };
+  return <div className="breathing-widget"><div className="breathing-patterns" aria-label={t("breathing")}><button type="button" className={patternId === "long" ? "active" : ""} onClick={() => selectPattern("long")}>{t("breathLong")}</button><button type="button" className={patternId === "box" ? "active" : ""} onClick={() => selectPattern("box")}>{t("breathBox")}</button></div><button type="button" className={`breath-circle ${active ? "breathing" : ""}`} style={{ animationDuration: `${phases.reduce((sum, item) => sum + item.seconds, 0)}s` }} onClick={() => { setTotalSeconds(60); setActive(true); }}><span>{active ? seconds : totalSeconds}</span><small>{active ? t(phase.key) : t("tryExercise")}</small></button><div className="breath-controls">{active && <button type="button" onClick={() => { setActive(false); setPhaseIndex(0); setSeconds(phases[0].seconds); setTotalSeconds(60); }}><RotateCcw size={13} /> {t("skip")}</button>}<span>{patternLabel}</span></div></div>;
 }
 
 function Support({ language, t, onBack }: { language: Language; t: (key: keyof typeof copy.ru) => string; onBack: () => void }) {

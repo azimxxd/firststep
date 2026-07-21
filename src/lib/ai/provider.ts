@@ -267,8 +267,8 @@ export class HuggingFaceProvider implements AIProvider {
 }
 
 export function getAIProvider(): AIProvider {
-  if (process.env.HF_TOKEN?.trim()) return new HuggingFaceProvider();
   if (process.env.GROQ_API_KEY?.trim()) return new GroqProvider();
+  if (process.env.HF_TOKEN?.trim()) return new HuggingFaceProvider();
   return process.env.AI_API_KEY?.trim() ? new OpenAIProvider() : new DemoAIProvider();
 }
 

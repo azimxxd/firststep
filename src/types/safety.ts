@@ -19,6 +19,8 @@ export type InterventionType =
   | "BREATHING"
   | "GROUNDING"
   | "NEXT_STEP"
+  | "STUDY_RESET"
+  | "SCREEN_BREAK"
   | "REACH_OUT"
   | "REFLECTION";
 
