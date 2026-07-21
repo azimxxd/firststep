@@ -12,6 +12,7 @@ import { FirstStepLogo } from "@/components/FirstStepLogo";
 
 type Screen = "landing" | "onboarding" | "chat" | "support";
 type ChatMessage = { role: "ai" | "user"; content: string };
+const CLIENT_CHAT_TIMEOUT_MS = 20_000;
 
 const copy = {
   ru: {
@@ -115,6 +116,11 @@ const copy = {
     tourDownloadText: "Кнопка со стрелкой вниз скачивает переписку в TXT только на твоё устройство — без session ID и технических данных.",
     tourSupportTitle: "Помощь человека всегда рядом",
     tourSupportText: "Кнопка с телефоном открывает проверенные контакты Казахстана и готовое сообщение человеку, которому ты доверяешь.",
+    loadingResponse: "FirstStep готовит ответ",
+    cancelResponse: "Остановить ожидание",
+    requestCancelled: "Ожидание остановлено. Сообщение можно отправить ещё раз.",
+    requestTimedOut: "Ответ занял больше 20 секунд. Попробуй отправить сообщение ещё раз.",
+    requestFailed: "Не удалось получить ответ. Попробуй ещё раз через несколько секунд.",
   },
   kk: {
     eyebrow: "FIRSTSTEP · АНОНИМДІ ЧАТ",
@@ -217,6 +223,11 @@ const copy = {
     tourDownloadText: "Төмен бағытталған көрсеткі әңгімені TXT түрінде тек құрылғыңа жүктейді — session ID мен техникалық деректерсіз.",
     tourSupportTitle: "Адам көмегі әрқашан жақын",
     tourSupportText: "Телефон батырмасы Қазақстандағы тексерілген байланыстарды және сенетін адамға арналған дайын хабарламаны ашады.",
+    loadingResponse: "FirstStep жауап дайындап жатыр",
+    cancelResponse: "Күтуді тоқтату",
+    requestCancelled: "Күту тоқтатылды. Хабарламаны қайта жіберуге болады.",
+    requestTimedOut: "Жауап 20 секундтан ұзаққа созылды. Хабарламаны қайта жіберіп көр.",
+    requestFailed: "Қазір жауапты жүктеу мүмкін болмады. Бірнеше секундтан кейін қайта байқап көр.",
   },
 } as const;
 
@@ -368,6 +379,7 @@ export default function FirstStepApp() {
   const [intervention, setIntervention] = useState<InterventionType | null>(null);
   const [conversation, setConversation] = useState<ConversationContext | null>(null);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
+  const activeRequestRef = useRef<AbortController | null>(null);
   const t = (key: keyof typeof copy.ru) => copy[language][key];
 
   useEffect(() => {
@@ -390,7 +402,10 @@ export default function FirstStepApp() {
 
   const sendMessage = async (message = input) => {
     const trimmed = message.trim();
-    if (!trimmed || pending || !sessionId) return;
+    if (!trimmed || pending || activeRequestRef.current || !sessionId) return;
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
+    const timeout = window.setTimeout(() => controller.abort("timeout"), CLIENT_CHAT_TIMEOUT_MS);
     setInput("");
     setRetryMessage(null);
     setMessages((current) => [...current, { role: "user", content: trimmed }]);
@@ -398,6 +413,7 @@ export default function FirstStepApp() {
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
+        signal: controller.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: trimmed,
@@ -413,22 +429,35 @@ export default function FirstStepApp() {
       setIntervention(payload.intervention?.type || null);
       setConversation(payload.conversation);
     } catch {
+      if (activeRequestRef.current !== controller) return;
       setRetryMessage(trimmed);
+      const errorMessage = controller.signal.reason === "user"
+        ? t("requestCancelled")
+        : controller.signal.reason === "timeout"
+          ? t("requestTimedOut")
+          : t("requestFailed");
       setMessages((current) => [
         ...current,
         {
           role: "ai",
-          content: language === "kk"
-            ? "Қазір жауапты жүктеу мүмкін болмады. Қайтадан байқап көр."
-            : "Не удалось получить ответ. Попробуй ещё раз через несколько секунд.",
+          content: errorMessage,
         },
       ]);
     } finally {
-      setPending(false);
+      window.clearTimeout(timeout);
+      if (activeRequestRef.current === controller) {
+        activeRequestRef.current = null;
+        setPending(false);
+      }
     }
   };
 
+  const cancelRequest = () => activeRequestRef.current?.abort("user");
+
   const restart = () => {
+    activeRequestRef.current?.abort("user");
+    activeRequestRef.current = null;
+    setPending(false);
     setScreen("landing");
     setAgreed(false);
     setSessionId("");
@@ -459,7 +488,7 @@ export default function FirstStepApp() {
         {screen === "landing" && <Landing language={language} t={t} onStart={() => setScreen("onboarding")} onSupport={() => setScreen("support")} />}
         {screen === "onboarding" && <Onboarding language={language} t={t} agreed={agreed} setAgreed={setAgreed} onContinue={continueAnonymously} onBack={() => setScreen("landing")} />}
         {screen === "support" && <Support language={language} t={t} onBack={() => setScreen(sessionId ? "chat" : "landing")} />}
-        {screen === "chat" && <Chat language={language} t={t} messages={messages} input={input} setInput={setInput} pending={pending} sendMessage={sendMessage} riskLevel={lastRisk} intervention={intervention} setIntervention={setIntervention} conversation={conversation} retryMessage={retryMessage} onSupport={() => setScreen("support")} />}
+        {screen === "chat" && <Chat language={language} t={t} messages={messages} input={input} setInput={setInput} pending={pending} sendMessage={sendMessage} cancelRequest={cancelRequest} riskLevel={lastRisk} intervention={intervention} setIntervention={setIntervention} conversation={conversation} retryMessage={retryMessage} onSupport={() => setScreen("support")} />}
       </div>
     </main>
   );
@@ -508,7 +537,7 @@ function Landing({ language, t, onStart, onSupport }: { language: Language; t: (
             preload="auto"
             poster="/firststep-particle-frame-01.webp"
           >
-            <source src="/firststep-liquid-glass-pingpong.mp4" type="video/mp4" />
+            <source src="/firststep-particle-loop.mp4" type="video/mp4" />
           </video>
         </div>
         <div className="hero-vignette" aria-hidden="true" />
@@ -664,7 +693,7 @@ function Onboarding({ language, t, agreed, setAgreed, onContinue, onBack }: { la
   );
 }
 
-function Chat({ language, t, messages, input, setInput, pending, sendMessage, riskLevel, intervention, setIntervention, conversation, retryMessage, onSupport }: { language: Language; t: (key: keyof typeof copy.ru) => string; messages: ChatMessage[]; input: string; setInput: (value: string) => void; pending: boolean; sendMessage: (message?: string) => Promise<void>; riskLevel: RiskLevel | null; intervention: InterventionType | null; setIntervention: (value: InterventionType | null) => void; conversation: ConversationContext | null; retryMessage: string | null; onSupport: () => void }) {
+function Chat({ language, t, messages, input, setInput, pending, sendMessage, cancelRequest, riskLevel, intervention, setIntervention, conversation, retryMessage, onSupport }: { language: Language; t: (key: keyof typeof copy.ru) => string; messages: ChatMessage[]; input: string; setInput: (value: string) => void; pending: boolean; sendMessage: (message?: string) => Promise<void>; cancelRequest: () => void; riskLevel: RiskLevel | null; intervention: InterventionType | null; setIntervention: (value: InterventionType | null) => void; conversation: ConversationContext | null; retryMessage: string | null; onSupport: () => void }) {
   const [promptContext, setPromptContext] = useState<PromptContext>("initial");
   const [downloaded, setDownloaded] = useState(false);
   const [tourOpen, setTourOpen] = useState(() => {
@@ -780,7 +809,7 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ri
         {conversation && conversation.topics.length > 0 && <aside className="context-map" aria-label={t("contextMap")}><span className="context-map-label"><Sparkles size={14} /> {t("contextMap")}</span><div className="context-topics">{conversation.topics.map((intent) => intentLabels[language][intent] && <span className={intent === conversation.primaryIntent ? "active" : ""} key={intent}>{intentLabels[language][intent]}</span>)}</div>{conversation.topicShift && <small>{t("contextShift")}</small>}</aside>}
         <div className="messages" aria-live="polite">
           {messages.map((message, index) => <div className={`message-row ${message.role}`} key={`${message.role}-${index}`}><div className="avatar">{message.role === "ai" ? <Sparkles size={14} /> : t("userLabel")}</div><div className="message-bubble">{message.content}</div></div>)}
-          {pending && <div className="message-row ai"><div className="avatar"><Sparkles size={14} /></div><div className="message-bubble typing"><i /><i /><i /></div></div>}
+          {pending && <div className="message-row ai"><div className="avatar"><Sparkles size={14} /></div><div className="message-bubble pending-bubble"><span className="typing-dots" role="status" aria-label={t("loadingResponse")}><i /><i /><i /></span><button type="button" className="cancel-request" onClick={cancelRequest}>{t("cancelResponse")}</button></div></div>}
           {riskLevel === "HIGH" && <button className="escalation-inline" onClick={onSupport}><span><Phone size={15} /> {t("highRisk")}</span><ChevronRight size={16} /></button>}
           {intervention && <InterventionCard type={intervention} t={t} onClose={() => setIntervention(null)} />}
           {retryMessage && !pending && <button className="retry-inline" onClick={() => void sendMessage(retryMessage)}><RotateCcw size={15} /> {t("retry")}</button>}
