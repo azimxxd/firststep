@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, Check, ChevronRight, HeartHandshake,
+  ArrowLeft, ArrowRight, Check, ChevronRight, Download, HeartHandshake,
   LockKeyhole, MessageCircle, Phone, RotateCcw, ShieldCheck, Sparkles,
   ShieldAlert,
 } from "lucide-react";
@@ -42,9 +42,10 @@ const copy = {
     send: "Отправить",
     skip: "Пропустить",
     tryExercise: "Попробовать упражнение",
-    supportTitle: "Ты не обязан(а) оставаться с этим один(а)",
-    supportLead: "Если ситуация кажется опасной прямо сейчас, обратись к человеку рядом или в местные экстренные службы.",
-    trusted: "Связаться с человеком, которому я доверяю",
+    supportTitle: "Помощь рядом",
+    supportLead: "Не нужно объяснять всё идеально. Выбери один способ, который подходит тебе прямо сейчас.",
+    trusted: "Написать человеку, которому я доверяю",
+    trustedHint: "Откроется готовое сообщение — его можно изменить перед отправкой.",
     resources: "Посмотреть доступные линии помощи",
     danger: "Мне сейчас угрожает непосредственная опасность",
     back: "Назад к разговору",
@@ -72,8 +73,13 @@ const copy = {
     trustedMessage: "Мне сейчас непросто. Можешь побыть на связи?",
     resourcesHint: "Круглосуточная конфиденциальная помощь: 111",
     dangerHint: "При непосредственной опасности звони 112",
-    resourceListTitle: "Проверенные ресурсы Казахстана",
+    resourceListTitle: "Куда обратиться в Казахстане",
+    resourceListHint: "Звонок может стать первым шагом. Можно начать с фразы: «Мне нужна помощь, и я не знаю, как об этом рассказать».",
     officialSource: "официальный источник",
+    call: "Позвонить",
+    whatsapp: "Написать в WhatsApp",
+    resourcesVerified: "Контакты проверены 21 июля 2026 года",
+    supportFallback: "Если один номер не отвечает, попробуй другой или сразу обратись к взрослому рядом, которому доверяешь.",
     contextMap: "Карта давления",
     contextShift: "Новая тема учтена",
     focusTaskLabel: "На чём сфокусироваться",
@@ -85,6 +91,12 @@ const copy = {
     focusComplete: "Спринт завершён. Теперь выбери: продолжить ещё 15 минут или сделать короткую паузу.",
     focusPrivacy: "Задача и таймер остаются только в этой вкладке.",
     retry: "Отправить ещё раз",
+    downloadChat: "Скачать переписку",
+    chatDownloaded: "Переписка скачана на устройство",
+    chatFileTitle: "сохранённая переписка",
+    savedAt: "Сохранено",
+    assistantLabel: "FirstStep",
+    downloadPrivacy: "Файл создан только на этом устройстве. В нём нет session ID и технических данных.",
     privacyPolicy: "Конфиденциальность",
     termsOfUse: "Условия использования",
     skipToContent: "Перейти к содержанию",
@@ -117,9 +129,10 @@ const copy = {
     send: "Жіберу",
     skip: "Өткізу",
     tryExercise: "Жаттығуды байқап көру",
-    supportTitle: "Мұны жалғыз көтеруге міндетті емессің",
-    supportLead: "Егер жағдай дәл қазір қауіпті көрінсе, жаныңдағы адамға немесе жергілікті жедел қызметке хабарлас.",
-    trusted: "Сенетін адамыма хабарласу",
+    supportTitle: "Көмек қасыңда",
+    supportLead: "Бәрін мінсіз түсіндірудің қажеті жоқ. Дәл қазір саған сәйкес келетін бір жолды таңда.",
+    trusted: "Сенетін адамыма жазу",
+    trustedHint: "Дайын хабарлама ашылады — жібермес бұрын оны өзгертуге болады.",
     resources: "Қолжетімді көмек желілерін көру",
     danger: "Маған дәл қазір тікелей қауіп төніп тұр",
     back: "Әңгімеге оралу",
@@ -147,8 +160,13 @@ const copy = {
     trustedMessage: "Маған қазір қиын. Біраз байланыста бола аласың ба?",
     resourcesHint: "Тәулік бойы құпия көмек: 111",
     dangerHint: "Тікелей қауіп болса, 112 нөміріне қоңырау шал",
-    resourceListTitle: "Қазақстанның тексерілген ресурстары",
+    resourceListTitle: "Қазақстанда қайда хабарласуға болады",
+    resourceListHint: "Қоңырау алғашқы қадам бола алады. «Маған көмек керек, бірақ қалай айту керегін білмеймін» деп бастауға болады.",
     officialSource: "ресми дереккөз",
+    call: "Қоңырау шалу",
+    whatsapp: "WhatsApp-қа жазу",
+    resourcesVerified: "Байланыстар 2026 жылғы 21 шілдеде тексерілді",
+    supportFallback: "Бір нөмір жауап бермесе, басқасына хабарлас немесе қасыңдағы сенетін ересек адамға бірден айт.",
     contextMap: "Қысым картасы",
     contextShift: "Жаңа тақырып ескерілді",
     focusTaskLabel: "Неге назар аударамыз",
@@ -160,6 +178,12 @@ const copy = {
     focusComplete: "Спринт аяқталды. Енді тағы 15 минут жалғастыруды немесе қысқа үзілісті таңда.",
     focusPrivacy: "Тапсырма мен таймер тек осы бетте қалады.",
     retry: "Қайта жіберу",
+    downloadChat: "Әңгімені жүктеп алу",
+    chatDownloaded: "Әңгіме құрылғыға жүктелді",
+    chatFileTitle: "сақталған әңгіме",
+    savedAt: "Сақталған уақыт",
+    assistantLabel: "FirstStep",
+    downloadPrivacy: "Файл тек осы құрылғыда жасалды. Онда session ID немесе техникалық деректер жоқ.",
     privacyPolicy: "Құпиялылық",
     termsOfUse: "Пайдалану шарттары",
     skipToContent: "Негізгі мазмұнға өту",
@@ -612,7 +636,9 @@ function Onboarding({ language, t, agreed, setAgreed, onContinue, onBack }: { la
 
 function Chat({ language, t, messages, input, setInput, pending, sendMessage, riskLevel, intervention, setIntervention, conversation, retryMessage, onSupport }: { language: Language; t: (key: keyof typeof copy.ru) => string; messages: ChatMessage[]; input: string; setInput: (value: string) => void; pending: boolean; sendMessage: (message?: string) => Promise<void>; riskLevel: RiskLevel | null; intervention: InterventionType | null; setIntervention: (value: InterventionType | null) => void; conversation: ConversationContext | null; retryMessage: string | null; onSupport: () => void }) {
   const [promptContext, setPromptContext] = useState<PromptContext>("initial");
+  const [downloaded, setDownloaded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const downloadStatusTimerRef = useRef<number | null>(null);
   const quickPrompts = promptSets[language][promptContext];
 
   useEffect(() => {
@@ -622,10 +648,42 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ri
     });
   }, [messages, pending, intervention]);
 
+  useEffect(() => () => {
+    if (downloadStatusTimerRef.current) window.clearTimeout(downloadStatusTimerRef.current);
+  }, []);
+
+  const downloadChat = () => {
+    const savedAt = new Date();
+    const locale = language === "kk" ? "kk-KZ" : "ru-RU";
+    const transcript = messages.map((message) => {
+      const speaker = message.role === "ai" ? t("assistantLabel") : t("userLabel");
+      return `${speaker}\n${message.content}`;
+    }).join("\n\n");
+    const fileContent = [
+      `FirstStep — ${t("chatFileTitle")}`,
+      `${t("savedAt")}: ${new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "short" }).format(savedAt)}`,
+      t("downloadPrivacy"),
+      "────────────────────",
+      transcript,
+    ].join("\n\n");
+    const blobUrl = URL.createObjectURL(new Blob(["\uFEFF", fileContent], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = `firststep-chat-${savedAt.toISOString().slice(0, 16).replace(/[T:]/g, "-")}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+    setDownloaded(true);
+    if (downloadStatusTimerRef.current) window.clearTimeout(downloadStatusTimerRef.current);
+    downloadStatusTimerRef.current = window.setTimeout(() => setDownloaded(false), 2600);
+  };
+
   return (
     <div className="chat-layout section-wrap">
       <section className="chat-panel">
-        <div className="chat-heading"><div><span className="eyebrow">{t("chatTitle")}</span><h1>{t("anonymous")}</h1></div><button className="support-icon-button" onClick={onSupport} aria-label={t("urgent")}><Phone size={17} /></button></div>
+        <div className="chat-heading"><div><span className="eyebrow">{t("chatTitle")}</span><h1>{t("anonymous")}</h1></div><div className="chat-header-actions"><button className={`support-icon-button ${downloaded ? "downloaded" : ""}`} onClick={downloadChat} aria-label={t("downloadChat")} title={t("downloadChat")}>{downloaded ? <Check size={17} /> : <Download size={17} />}</button><button className="support-icon-button" onClick={onSupport} aria-label={t("urgent")} title={t("urgent")}><Phone size={17} /></button></div></div>
+        <span className="sr-only" role="status" aria-live="polite">{downloaded ? t("chatDownloaded") : ""}</span>
         <div className="privacy-banner"><LockKeyhole size={14} /> {t("privacy")}</div>
         {conversation && conversation.topics.length > 0 && <aside className="context-map" aria-label={t("contextMap")}><span className="context-map-label"><Sparkles size={14} /> {t("contextMap")}</span><div className="context-topics">{conversation.topics.map((intent) => intentLabels[language][intent] && <span className={intent === conversation.primaryIntent ? "active" : ""} key={intent}>{intentLabels[language][intent]}</span>)}</div>{conversation.topicShift && <small>{t("contextShift")}</small>}</aside>}
         <div className="messages" aria-live="polite">
@@ -720,5 +778,47 @@ function BreathingExercise({ t }: { t: (key: keyof typeof copy.ru) => string }) 
 
 function Support({ language, t, onBack }: { language: Language; t: (key: keyof typeof copy.ru) => string; onBack: () => void }) {
   const trustedMessage = t("trustedMessage");
-  return <div className="support-page section-wrap"><button className="back-link" onClick={onBack}><ArrowLeft size={15} /> {t("back")}</button><div className="support-hero"><div className="support-icon"><HeartHandshake size={28} /></div><span className="eyebrow">HUMAN SUPPORT</span><h1>{t("supportTitle")}</h1><p>{t("supportLead")}</p></div><div className="support-actions"><a className="support-action" href={`sms:?body=${encodeURIComponent(trustedMessage)}`}><span className="support-action-icon"><MessageCircle size={18} /></span><span><b>{t("trusted")}</b><small>{trustedMessage}</small></span><ChevronRight size={17} /></a><a className="support-action" href="tel:111"><span className="support-action-icon"><Phone size={18} /></span><span><b>{t("resources")}</b><small>{t("resourcesHint")}</small></span><ChevronRight size={17} /></a><a className="support-action danger-action" href="tel:112"><span className="support-action-icon"><ShieldCheck size={18} /></span><span><b>{t("danger")}</b><small>{t("dangerHint")}</small></span><ChevronRight size={17} /></a></div><div className="resource-list"><h2>{t("resourceListTitle")}</h2>{supportResources.map((resource) => <div className="resource-row" key={resource.id}><div><b>{resource.title[language]}</b><p>{resource.description[language]}</p><a className="resource-source" href={resource.sourceHref} target="_blank" rel="noreferrer">{t("officialSource")}</a></div><a className="resource-contact" href={resource.href}>{resource.contact}</a></div>)}</div></div>;
+  return (
+    <div className="support-page section-wrap">
+      <button className="back-link" onClick={onBack}><ArrowLeft size={15} /> {t("back")}</button>
+      <div className="support-hero">
+        <div className="support-icon"><HeartHandshake size={28} /></div>
+        <span className="eyebrow">HUMAN SUPPORT</span>
+        <h1>{t("supportTitle")}</h1>
+        <p>{t("supportLead")}</p>
+      </div>
+
+      <a className="trusted-contact-card" href={`sms:?body=${encodeURIComponent(trustedMessage)}`}>
+        <span className="support-action-icon"><MessageCircle size={18} /></span>
+        <span><b>{t("trusted")}</b><small>{t("trustedHint")}</small></span>
+        <ChevronRight size={17} />
+      </a>
+
+      <section className="support-resource-list" aria-labelledby="support-resource-title">
+        <div className="support-resource-heading">
+          <div><h2 id="support-resource-title">{t("resourceListTitle")}</h2><p>{t("resourceListHint")}</p></div>
+          <span>{t("resourcesVerified")}</span>
+        </div>
+        <div className="support-resource-grid">
+          {supportResources.map((resource) => {
+            const ResourceIcon = resource.kind === "talk" ? HeartHandshake : resource.kind === "protection" ? ShieldCheck : ShieldAlert;
+            return (
+              <article className={`support-resource-card ${resource.kind}`} key={resource.id}>
+                <div className="support-resource-meta"><span><ResourceIcon size={15} /> {resource.category[language]}</span><small>{resource.availability[language]}</small></div>
+                <h3>{resource.title[language]}</h3>
+                <p>{resource.description[language]}</p>
+                <div className="support-resource-actions">
+                  <a className="resource-call" href={resource.href}><Phone size={16} /><span>{t("call")}</span><strong>{resource.contact}</strong></a>
+                  {resource.secondaryContact && <a className="resource-message" href={resource.secondaryContact.href} target="_blank" rel="noreferrer"><MessageCircle size={16} /><span>{t("whatsapp")}</span></a>}
+                </div>
+                {resource.secondaryContact && <small className="resource-secondary-number">WhatsApp: {resource.secondaryContact.contact}</small>}
+                <a className="resource-source" href={resource.sourceHref} target="_blank" rel="noreferrer">{t("officialSource")} ↗</a>
+              </article>
+            );
+          })}
+        </div>
+        <p className="support-fallback-note">{t("supportFallback")}</p>
+      </section>
+    </div>
+  );
 }

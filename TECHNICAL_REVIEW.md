@@ -14,7 +14,7 @@
 ## Что уже сделано хорошо
 
 - HIGH-risk определяется до генеративного AI и полностью запрещает model call.
-- AI provider имеет deterministic local fallback.
+- AI provider имеет отдельный local demo mode без credentials; ошибки настроенного провайдера не маскируются шаблонным ответом.
 - Полные чаты не сохраняются приложением; базы данных нет.
 - PII scrubber стоит до provider call.
 - UI поддерживает русский и казахский языки, reduced motion и мобильную компоновку.
@@ -45,7 +45,7 @@
 
 ## AI-архитектура после ревью
 
-- Основной HF provider остаётся первым, OpenAI Responses API — альтернативой, local scenarios — обязательным fallback.
+- Основной HF provider остаётся первым, OpenAI Responses API — альтернативой, local scenarios — только offline/demo режимом без credentials.
 - OpenAI request использует `store: false`, ограниченный output и session-scoped safety identifier.
 - Intents и risk route входят в system contract, но внутренние labels запрещено показывать пользователю.
 - HIGH не попадает ни в HF, ни в OpenAI.

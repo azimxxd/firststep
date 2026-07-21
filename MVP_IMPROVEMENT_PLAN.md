@@ -2,7 +2,7 @@
 
 ## Текущее состояние
 
-MVP уже имеет сильное архитектурное основание: PII scrubber, детерминированный HIGH-risk gate, отдельный human-support route, провайдерный fallback, RU/KK интерфейс и отсутствие хранения полного диалога приложением. Production build работает как один статический UI route и serverless `/api/chat`.
+MVP уже имеет сильное архитектурное основание: PII scrubber, детерминированный HIGH-risk gate, отдельный human-support route, прозрачный provider retry/error path, RU/KK интерфейс и отсутствие хранения полного диалога приложением. Production build работает как один статический UI route и serverless `/api/chat`.
 
 Основные риски аудита: слишком общий AI-контракт, доверие клиентским ролям history, непроверенные ранее контакты помощи, отсутствие автоматических safety-evals, устаревающий lint script, отсутствие Vercel health endpoint, частичная двуязычность support flow, неработающие contact CTA и отсутствие распределённого rate limit.
 

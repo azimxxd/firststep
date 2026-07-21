@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 
 function configuredProvider() {
   if (process.env.HF_TOKEN?.trim()) return "Hugging Face Inference Providers и выбранный ими inference-provider";
+  if (process.env.GROQ_API_KEY?.trim()) return "GroqCloud и выбранная через него модель";
   if (process.env.AI_API_KEY?.trim()) return "OpenAI API";
   return "локальные сценарии FirstStep без внешней генеративной модели";
 }

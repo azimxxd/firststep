@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { crisisResponse, generateSafeResponse } from "@/lib/ai/provider";
+import { AIProviderUnavailableError, crisisResponse, generateSafeResponse } from "@/lib/ai/provider";
 import { getDeploymentReadiness } from "@/lib/config/runtime";
 import { scrubPii } from "@/lib/privacy/piiScrubber";
 import { analyzeMessage } from "@/lib/safety/safetyEngine";
@@ -210,7 +210,24 @@ export async function POST(request: Request) {
       conversation,
       requestId,
     }, 200, { ...requestHeaders, ...rateLimitHeaders });
-  } catch {
+  } catch (error) {
+    if (error instanceof AIProviderUnavailableError) {
+      console.error(JSON.stringify({
+        event: "chat_provider_failed",
+        requestId,
+        durationMs: Date.now() - startedAt,
+        status: 502,
+        provider: error.provider,
+        reason: error.reason,
+        detail: error.detail,
+      }));
+      return jsonResponse({
+        error: "The AI provider is temporarily unavailable. Please retry.",
+        code: error.reason === "response_rejected" ? "AI_RESPONSE_REJECTED" : "AI_PROVIDER_UNAVAILABLE",
+        ...(process.env.NODE_ENV === "development" ? { diagnostic: error.detail } : {}),
+        requestId,
+      }, 502, { ...requestHeaders, "Retry-After": error.detail === "quota" ? "60" : "3" });
+    }
     console.error(JSON.stringify({ event: "chat_failed", requestId, durationMs: Date.now() - startedAt, status: 500 }));
     return jsonResponse({ error: "Unable to process this message safely.", requestId }, 500, requestHeaders);
   }

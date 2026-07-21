@@ -15,6 +15,16 @@ const productionReady = getDeploymentReadiness({
 assert.equal(productionReady.ready, true);
 assert.deepEqual(productionReady.missing, []);
 
+const vercelMarketplaceReady = getDeploymentReadiness({
+  VERCEL_ENV: "production",
+  GROQ_API_KEY: "test-only-token",
+  KV_REST_API_URL: "https://example.upstash.io",
+  KV_REST_API_TOKEN: "test-only-token",
+  RATE_LIMIT_HASH_SECRET: "0123456789abcdef0123456789abcdef",
+});
+assert.equal(vercelMarketplaceReady.ready, true);
+assert.deepEqual(vercelMarketplaceReady.missing, []);
+
 const previewWithoutExternalControls = getDeploymentReadiness({ VERCEL_ENV: "preview" });
 assert.equal(previewWithoutExternalControls.ready, true);
 assert.equal(previewWithoutExternalControls.controlsRequired, false);

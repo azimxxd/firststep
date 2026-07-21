@@ -13,7 +13,7 @@ export interface GenerateInput {
 }
 
 export interface AIProvider {
-  readonly name: "huggingface" | "openai" | "local";
+  readonly name: "huggingface" | "groq" | "openai" | "local";
   generateSafeResponse(input: GenerateInput): Promise<string>;
 }
 
@@ -21,7 +21,35 @@ export interface GeneratedResponse {
   message: string;
   provider: AIProvider["name"];
   fallback: boolean;
-  strategy: "model" | "topic_bridge" | "provider_fallback";
+  strategy: "model" | "local_demo";
+}
+
+export class AIProviderUnavailableError extends Error {
+  readonly provider: Exclude<AIProvider["name"], "local">;
+  readonly reason: "provider_unavailable" | "response_rejected";
+  readonly detail: "auth" | "quota" | "rate_limited" | "model_unavailable" | "upstream" | "timeout" | "network" | "response_rejected";
+
+  constructor(
+    provider: Exclude<AIProvider["name"], "local">,
+    reason: AIProviderUnavailableError["reason"],
+    detail: AIProviderUnavailableError["detail"],
+  ) {
+    super("Configured AI provider could not produce a safe response");
+    this.name = "AIProviderUnavailableError";
+    this.provider = provider;
+    this.reason = reason;
+    this.detail = detail;
+  }
+}
+
+class ProviderHttpError extends Error {
+  readonly status: number;
+
+  constructor(provider: string, status: number) {
+    super(`${provider} provider error: ${status}`);
+    this.name = "ProviderHttpError";
+    this.status = status;
+  }
 }
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
@@ -76,7 +104,7 @@ function validateModelResponse(value: unknown): string {
 
 function buildSystemInstruction(input: GenerateInput) {
   const previous = input.conversation.previousPrimaryIntent || "NONE";
-  const dialogueState = `Dialogue state: turn ${input.conversation.turnNumber}; current topic ${input.conversation.primaryIntent}; previous topic ${previous}; topic shift ${input.conversation.topicShift ? "yes" : "no"}; continuation inherited from context ${input.conversation.continuedFromContext ? "yes" : "no"}. Use this state for continuity but never mention its labels.`;
+  const dialogueState = `Dialogue state hints: turn ${input.conversation.turnNumber}; current topic ${input.conversation.primaryIntent}; previous topic ${previous}; topic shift ${input.conversation.topicShift ? "yes" : "no"}; continuation inherited from context ${input.conversation.continuedFromContext ? "yes" : "no"}. These classifier hints can be incomplete. Infer the actual meaning from the current message itself, never force it into an inherited topic, and never mention internal labels.`;
   return `${SAFE_SYSTEM_PROMPT}\n${languageInstruction(input.language, input.riskLevel, input.intents)}\n${dialogueState}\n${RESPONSE_CONTRACT}`;
 }
 
@@ -145,11 +173,45 @@ export class OpenAIProvider implements AIProvider {
             messages: buildMessages(input),
           }),
       });
-      if (!response.ok) throw new Error(`AI provider error: ${response.status}`);
+      if (!response.ok) throw new ProviderHttpError("OpenAI", response.status);
       const payload = await response.json();
-      return apiMode === "responses"
+      const content = apiMode === "responses"
         ? validateModelResponse(extractResponsesText(payload as ResponsesPayload))
         : validateModelResponse((payload as ChatCompletionPayload).choices?.[0]?.message?.content);
+      return ensureConversationProgress(content, input);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+}
+
+export class GroqProvider implements AIProvider {
+  readonly name = "groq" as const;
+
+  async generateSafeResponse(input: GenerateInput): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), providerTimeout("AI_TIMEOUT_MS", 14_000));
+    try {
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: process.env.GROQ_MODEL || "qwen/qwen3.6-27b",
+          temperature: 0.7,
+          max_tokens: maxOutputTokens("AI_MAX_OUTPUT_TOKENS", 240),
+          reasoning_effort: "none",
+          reasoning_format: "hidden",
+          messages: buildMessages(input),
+          stream: false,
+        }),
+      });
+      if (!response.ok) throw new ProviderHttpError("Groq", response.status);
+      const payload = (await response.json()) as ChatCompletionPayload;
+      return ensureConversationProgress(validateModelResponse(payload.choices?.[0]?.message?.content), input);
     } finally {
       clearTimeout(timeout);
     }
@@ -161,16 +223,17 @@ export class HuggingFaceProvider implements AIProvider {
 
   private readonly baseUrl = (process.env.HF_BASE_URL || "https://router.huggingface.co/v1").replace(/\/$/, "");
   private readonly models = [
-    process.env.HF_MODEL || "Qwen/Qwen3-8B",
-    process.env.HF_FALLBACK_MODEL || "Qwen/Qwen3-4B-Instruct-2507",
+    process.env.HF_MODEL || "Qwen/Qwen3-4B-Instruct-2507",
+    process.env.HF_FALLBACK_MODEL || "Qwen/Qwen3-8B",
   ].filter((model, index, all) => model && all.indexOf(model) === index);
 
   async generateSafeResponse(input: GenerateInput): Promise<string> {
     let lastError: unknown;
     for (const model of this.models) {
       try {
-        return await this.generateWithModel(model, input);
+        return ensureConversationProgress(await this.generateWithModel(model, input), input);
       } catch (error) {
+        if (error instanceof ProviderHttpError && [401, 402, 403].includes(error.status)) throw error;
         lastError = error;
       }
     }
@@ -195,7 +258,7 @@ export class HuggingFaceProvider implements AIProvider {
           messages: buildMessages(input, true),
         }),
       });
-      if (!response.ok) throw new Error(`Hugging Face provider error: ${response.status}`);
+      if (!response.ok) throw new ProviderHttpError("Hugging Face", response.status);
       const payload = (await response.json()) as ChatCompletionPayload;
       return validateModelResponse(payload.choices?.[0]?.message?.content);
     } finally {
@@ -206,6 +269,7 @@ export class HuggingFaceProvider implements AIProvider {
 
 export function getAIProvider(): AIProvider {
   if (process.env.HF_TOKEN?.trim()) return new HuggingFaceProvider();
+  if (process.env.GROQ_API_KEY?.trim()) return new GroqProvider();
   return process.env.AI_API_KEY?.trim() ? new OpenAIProvider() : new DemoAIProvider();
 }
 
@@ -240,31 +304,47 @@ function ensureConversationProgress(response: string, input: GenerateInput) {
   return response;
 }
 
+function classifyProviderFailure(error: unknown, reason: AIProviderUnavailableError["reason"]): AIProviderUnavailableError["detail"] {
+  if (reason === "response_rejected") return "response_rejected";
+
+  const message = error instanceof Error ? error.message : "";
+  const status = error instanceof ProviderHttpError
+    ? error.status
+    : Number(message.match(/error:\s*(\d{3})/i)?.[1]);
+
+  if (status === 401 || status === 403) return "auth";
+  if (status === 402) return "quota";
+  if (status === 400 || status === 404) return "model_unavailable";
+  if (status === 429) return "rate_limited";
+  if (status >= 500) return "upstream";
+  if (error instanceof Error && error.name === "AbortError") return "timeout";
+  return "network";
+}
+
 export async function generateSafeResponse(input: GenerateInput): Promise<GeneratedResponse> {
-  if (input.conversation.topicShift) {
+  const provider = getAIProvider();
+  if (provider.name === "local") {
     return {
-      message: await new DemoAIProvider().generateSafeResponse(input),
+      message: await provider.generateSafeResponse(input),
       provider: "local",
-      fallback: false,
-      strategy: "topic_bridge",
+      fallback: true,
+      strategy: "local_demo",
     };
   }
-  const provider = getAIProvider();
+
   try {
     return {
-      message: ensureConversationProgress(await provider.generateSafeResponse(input), input),
+      message: await provider.generateSafeResponse(input),
       provider: provider.name,
       fallback: false,
       strategy: "model",
     };
-  } catch {
-    // Provider outages must never turn a safe support route into an application error.
-    return {
-      message: await new DemoAIProvider().generateSafeResponse(input),
-      provider: "local",
-      fallback: true,
-      strategy: "provider_fallback",
-    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const reason = /unsafe response|disallowed|dependency-forming|repeated/i.test(message)
+      ? "response_rejected"
+      : "provider_unavailable";
+    throw new AIProviderUnavailableError(provider.name, reason, classifyProviderFailure(error, reason));
   }
 }
 

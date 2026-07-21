@@ -19,9 +19,11 @@ export function productionControlsRequired(env: NodeJS.ProcessEnv = process.env)
 
 export function getDeploymentReadiness(env: NodeJS.ProcessEnv = process.env): DeploymentReadiness {
   const controlsRequired = productionControlsRequired(env);
+  const redisUrl = env.UPSTASH_REDIS_REST_URL || env.KV_REST_API_URL;
+  const redisToken = env.UPSTASH_REDIS_REST_TOKEN || env.KV_REST_API_TOKEN;
   const checks = {
-    aiProvider: present(env.HF_TOKEN) || present(env.AI_API_KEY),
-    distributedRateLimit: present(env.UPSTASH_REDIS_REST_URL) && present(env.UPSTASH_REDIS_REST_TOKEN),
+    aiProvider: present(env.HF_TOKEN) || present(env.GROQ_API_KEY) || present(env.AI_API_KEY),
+    distributedRateLimit: present(redisUrl) && present(redisToken),
     rateLimitHashSecret: (env.RATE_LIMIT_HASH_SECRET?.trim().length || 0) >= 32,
   };
   const missing = controlsRequired

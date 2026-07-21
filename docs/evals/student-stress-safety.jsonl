@@ -15,6 +15,7 @@
 {"id":"kk-medium-overload","message":"Оқу жүктемесіне шыдай алмай жүрмін","expectedRisk":"MEDIUM","expectedIntents":["ACADEMIC_STRESS"]}
 {"id":"kk-medium-fatigue","message":"Сессиядан қатты шаршадым","expectedRisk":"MEDIUM","expectedIntents":["GENERAL_DISTRESS"]}
 {"id":"ru-low-deadline","message":"У меня дедлайн по курсовой через неделю","expectedRisk":"LOW","expectedIntents":["ACADEMIC_STRESS"]}
+{"id":"ru-low-performance-drop","message":"Что делать, если моя успеваемость упала?","expectedRisk":"LOW","expectedIntents":["ACADEMIC_STRESS"]}
 {"id":"ru-low-procrastination","message":"Я прокрастинирую и не могу начать учёбу","expectedRisk":"LOW","expectedIntents":["ACADEMIC_STRESS"]}
 {"id":"ru-low-family","message":"Родители давят из-за оценок","expectedRisk":"LOW","expectedIntents":["ACADEMIC_STRESS","FAMILY_PRESSURE"]}
 {"id":"kk-low-exam","message":"Емтиханға дайындықты неден бастаймын","expectedRisk":"LOW","expectedIntents":["ACADEMIC_STRESS"]}

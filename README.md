@@ -26,15 +26,16 @@ FirstStep не решает домашние задания, не отвечае
 3. Очевидные email и телефоны редактируются до внешнего AI-вызова.
 4. Детерминированный safety engine определяет risk и intent, а conversation router — продолжение или смену темы.
 5. `LOW / MEDIUM` получает короткий доменный ответ, прозрачную карту тем и одну intervention-карточку.
-6. `HIGH` никогда не отправляется генеративной модели: UI показывает `112`, `111` и переход к человеку.
+6. `HIGH` никогда не отправляется генеративной модели: UI показывает `150`, `111`, `112` и переход к человеку.
 
 ## Функции для хакатонного демо
 
 - **Карта давления** показывает, какие темы уже появились в разговоре и какая активна сейчас. Это демонстрирует контекст без скрытой «магии» и позволяет заметить смену темы.
 - **Фокус-спринт 15 минут** превращает разговор об учебной перегрузке в конкретное действие: студент формулирует один шаг, запускает локальный таймер и не передаёт текст задачи на сервер.
 - **Контекстный мост** связывает новую тему с предыдущей. Например, переход от дедлайнов к одиночеству не сбрасывает разговор и не повторяет старый совет.
-- **Антиповтор** сравнивает новый ответ с предыдущим. Повторное вступление или почти тот же финальный вопрос отклоняются, после чего включается безопасный доменный fallback.
-- **Human handoff** предлагает готовое короткое сообщение доверенному человеку и проверенные номера `111`/`112` без попытки удержать пользователя внутри AI-чата.
+- **Антиповтор** сравнивает новый ответ с предыдущим. Повторное вступление или почти тот же финальный вопрос отклоняются; HF пробует резервную модель, а при полном сбое UI честно предлагает повторить запрос.
+- **Human handoff** предлагает готовое короткое сообщение доверенному человеку и три понятных уровня помощи: `150` — поговорить, `111` — получить защиту, `112` — вызвать экстренную службу.
+- **Локальный экспорт** скачивает читаемую переписку в `.txt` только по явному действию пользователя. Файл формируется в браузере и не содержит session ID или технических метаданных.
 
 ## Архитектура
 
@@ -47,17 +48,18 @@ flowchart LR
   Safety --> Intent[Student-stress intents]
   Intent --> Context[Conversation context and topic shift]
   Risk -->|HIGH| Crisis[Human escalation only]
-  Crisis --> Resources[112 / 111 / trusted person]
+  Crisis --> Resources[150 / 111 / 112 / trusted person]
   Risk -->|LOW or MEDIUM| Limit[Upstash distributed rate limit]
   Limit --> Provider[HF or OpenAI provider]
   Context --> Provider
   Provider --> Guard[Safety and repetition guard]
   Guard --> Reply[2-4 sentences + one next step]
   Reply --> Logs[Content-free runtime event]
-  Provider -. failure .-> Local[Deterministic local fallback]
+  Provider -. configured provider failure .-> Retry[502 + explicit retry]
+  Local[Local scenarios] -->|only without credentials in local/preview| Guard
 ```
 
-Ключевой инвариант: `HIGH` является авторитетным решением локального router и не может быть понижен моделью. Клиентская история не передаётся как доверенные роли: API ограничивает её и преобразует в явно недоверенный transcript, чтобы снизить риск role spoofing и prompt injection. Короткие продолжения наследуют последнюю студенческую тему, явная смена темы получает детерминированный контекстный мост.
+Ключевой инвариант: `HIGH` является авторитетным решением локального router и не может быть понижен моделью. Клиентская история не передаётся как доверенные роли: API ограничивает её и преобразует в явно недоверенный transcript, чтобы снизить риск role spoofing и prompt injection. Для LOW/MEDIUM текущий текст всегда интерпретирует модель, включая неизвестные classifier-у формулировки и смену темы; intent labels используются только как подсказки.
 
 ## Узкий AI-контракт
 
@@ -74,10 +76,10 @@ flowchart LR
 ## Safety и приватность
 
 - Полные разговоры не записываются приложением и базы данных в MVP нет.
-- Сессия существует только в состоянии браузера; язык хранится в `localStorage`.
+- Сессия существует только в состоянии браузера; язык хранится в `localStorage`. Пользователь может вручную скачать текущую переписку в локальный `.txt` — приложение не загружает этот файл обратно на сервер.
 - Email и телефон редактируются регулярными выражениями до внешнего AI-вызова.
 - Request body, session ID, history, output и время выполнения ограничены.
-- Ответы с reasoning-тегами, клинической или dependency-forming лексикой, повторным вступлением или почти тем же вопросом отклоняются; используется локальный fallback.
+- Ответы с reasoning-тегами, клинической или dependency-forming лексикой, повторным вступлением или почти тем же вопросом отклоняются. HF пробует fallback model; если настроенный провайдер не вернул безопасный ответ, API отвечает `502`, не подменяя ответ шаблоном.
 - API-ответы имеют `Cache-Control: no-store`.
 - Production endpoint защищён атомарным Upstash rate limit; в Redis попадает только HMAC-хеш адреса с коротким TTL, без текста и session ID.
 - Runtime telemetry содержит request ID, latency, status, risk route, intent, provider/fallback, но не текст, session ID или IP.
@@ -89,7 +91,8 @@ flowchart LR
 Официальные ресурсы Казахстана, проверенные 21.07.2026:
 
 - `112` — [единый номер экстренной службы](https://www.gov.kz/situations/729/1519?lang=ru);
-- `111` — [круглосуточный конфиденциальный контакт-центр](https://www.gov.kz/situations/677/1457?lang=ru) по вопросам семьи, женщин и защиты прав детей, включая психологическую поддержку.
+- `111` — [круглосуточный конфиденциальный контакт-центр](https://www.gov.kz/situations/677/1457?lang=ru) по вопросам семьи, женщин и защиты прав детей, включая психологическую поддержку;
+- `150` — [бесплатная круглосуточная линия доверия](https://www.gov.kz/memleket/entities/ombudsman-almaty/press/news/details/748239) для детей, молодёжи и людей, столкнувшихся с насилием; доступен WhatsApp `+7 708 106 08 10`.
 
 Контакты необходимо перепроверять перед запуском и не реже одного раза в квартал.
 
@@ -100,7 +103,7 @@ flowchart LR
 - TypeScript strict mode;
 - ESLint 9 flat config;
 - plain CSS, responsive UI, reduced-motion support;
-- Hugging Face Inference Providers: Qwen3 primary + fallback;
+- Hugging Face Inference Providers: экономичная Qwen3-4B primary + Qwen3-8B fallback;
 - OpenAI Responses API как альтернативный provider;
 - Upstash Redis REST transaction для распределённого rate limit;
 - Vercel runtime logs с content-free structured events;
@@ -116,10 +119,10 @@ src/lib/privacy/                 PII scrubber
 src/lib/safety/                  risk, intent, intervention и routing
 src/lib/ai/prompts.ts            versionable student-stress contract
 src/lib/ai/provider.ts           HF/OpenAI adapters и output guard
-src/lib/ai/localScenarios.ts     deterministic provider fallback
+src/lib/ai/localScenarios.ts     offline local/preview demo without credentials
 src/lib/config/runtime.ts        fail-closed production readiness
 src/lib/security/rateLimit.ts    distributed fixed-window limiter
-src/config/supportResources.ts   проверенные 112/111 и источники
+src/config/supportResources.ts   проверенные 150/111/112 и источники
 src/components/FirstStepApp.tsx  landing, consent, chat, exercises, support
 docs/evals/                      regression cases для safety gate
 scripts/run-safety-evals.mjs     локальный/CI eval runner
@@ -139,20 +142,22 @@ Copy-Item .env.example .env.local
 pnpm dev
 ```
 
-Открыть `http://localhost:3000`. Без ключей приложение остаётся полностью работоспособным на локальных сценариях.
+Открыть `http://localhost:3000`. Без ключей local/preview остаётся работоспособным в явно локальном demo-режиме. Если ключ настроен, ошибка внешней модели не маскируется demo-сценарием.
 
 ## Переменные окружения
 
-Hugging Face имеет приоритет, если задан `HF_TOKEN`. Если его нет, используется `AI_API_KEY`; если нет обоих — local fallback.
+Hugging Face имеет приоритет, если задан `HF_TOKEN`. Затем используется бесплатный Groq при наличии `GROQ_API_KEY`, после него — `AI_API_KEY`; без credentials local demo mode разрешён только вне production.
 
 | Переменная | Назначение | Значение по умолчанию |
 |---|---|---|
 | `HF_TOKEN` | server-side Hugging Face token | пусто |
 | `HF_BASE_URL` | OpenAI-compatible HF endpoint | `https://router.huggingface.co/v1` |
-| `HF_MODEL` | primary HF model или ваш endpoint model ID | `Qwen/Qwen3-8B` |
-| `HF_FALLBACK_MODEL` | fallback HF model | `Qwen/Qwen3-4B-Instruct-2507` |
+| `HF_MODEL` | primary HF model или ваш endpoint model ID | `Qwen/Qwen3-4B-Instruct-2507` |
+| `HF_FALLBACK_MODEL` | fallback HF model | `Qwen/Qwen3-8B` |
 | `HF_TIMEOUT_MS` | timeout одного HF-вызова | `12000` |
 | `HF_MAX_TOKENS` | предел output tokens, сервер дополнительно ограничивает 80–320 | `240` |
+| `GROQ_API_KEY` | server-side GroqCloud key для бесплатного production tier | пусто |
+| `GROQ_MODEL` | Groq model ID | `qwen/qwen3.6-27b` |
 | `AI_API_KEY` | server-side OpenAI key | пусто |
 | `AI_BASE_URL` | OpenAI API base URL | `https://api.openai.com/v1` |
 | `AI_API_MODE` | `responses` или legacy `chat-completions`; для legacy укажите совместимый `AI_MODEL` | `responses` |
@@ -161,6 +166,7 @@ Hugging Face имеет приоритет, если задан `HF_TOKEN`. Ес
 | `AI_MAX_OUTPUT_TOKENS` | предел output tokens | `240` |
 | `UPSTASH_REDIS_REST_URL` | server-side Upstash REST endpoint | пусто |
 | `UPSTASH_REDIS_REST_TOKEN` | server-side token с правом `INCR/EXPIRE` | пусто |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | альтернативные имена из Vercel Marketplace Upstash | пусто |
 | `RATE_LIMIT_HASH_SECRET` | HMAC-соль длиной не менее 32 символов | пусто |
 | `RATE_LIMIT_MAX_REQUESTS` | запросов с одного сетевого адреса за окно | `12` |
 | `RATE_LIMIT_WINDOW_SECONDS` | размер fixed window | `60` |
@@ -168,6 +174,8 @@ Hugging Face имеет приоритет, если задан `HF_TOKEN`. Ес
 | `PRIVACY_CONTACT_URL` | публичный конфиденциальный контакт оператора | GitHub Security Advisory |
 
 Не копируйте `.env.local` в Git и не используйте `NEXT_PUBLIC_HF_TOKEN`/`NEXT_PUBLIC_AI_API_KEY`.
+
+Если development API возвращает `AI_PROVIDER_UNAVAILABLE` с diagnostic `quota`, токен распознан, но месячные Hugging Face Inference Providers credits исчерпаны. Пополните credits или настройте custom provider key в HF; приложение намеренно не подменяет такой сбой локальным текстом. См. [официальные правила HF pricing and billing](https://huggingface.co/docs/inference-providers/en/pricing).
 
 ## Команды качества
 

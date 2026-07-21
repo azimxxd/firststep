@@ -27,8 +27,8 @@ export async function checkChatRateLimit(request: Request): Promise<RateLimitRes
   const limit = boundedInteger(process.env.RATE_LIMIT_MAX_REQUESTS, 12, 2, 120);
   const windowSeconds = boundedInteger(process.env.RATE_LIMIT_WINDOW_SECONDS, 60, 10, 3_600);
   const retryAfterSeconds = windowSeconds - (Math.floor(Date.now() / 1_000) % windowSeconds);
-  const redisUrl = process.env.UPSTASH_REDIS_REST_URL?.trim().replace(/\/$/, "");
-  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  const redisUrl = (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL)?.trim().replace(/\/$/, "");
+  const redisToken = (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN)?.trim();
   const hashSecret = process.env.RATE_LIMIT_HASH_SECRET?.trim();
   const required = productionControlsRequired();
 
