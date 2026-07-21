@@ -111,7 +111,7 @@ src/components/FirstStepApp.tsx UI, onboarding, chat и support flow
 src/config/supportResources.ts  конфигурация human-support ресурсов
 public/                         generated hero animation и poster assets
 PITCH_DECK_TEXT.md              текст презентации и Q&A
-CUSTDEV_EVIDENCE.md             шаблон обезличенных выводов Google Form
+CUSTDEV_EVIDENCE.md             обезличенная выжимка результатов Google Form
 DEMO_RUNBOOK.md                 основной сценарий и план Б для защиты
 ```
 
@@ -129,10 +129,13 @@ DEMO_RUNBOOK.md                 основной сценарий и план Б
 ## Исследование и презентация
 
 - [PITCH_DECK_TEXT.md](./PITCH_DECK_TEXT.md) — слайды, 4-минутный текст и ответы Q&A.
-- [CUSTDEV_EVIDENCE.md](./CUSTDEV_EVIDENCE.md) — место для фактических результатов Google Form.
+- [CUSTDEV_EVIDENCE.md](./CUSTDEV_EVIDENCE.md) — обезличенные фактические результаты Google Form.
 - [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md) — пошаговое live-демо.
 
-Поля `[ИЗ GOOGLE FORMS]` нужно заполнить фактическими цифрами до подачи. В репозитории не должны появляться придуманные результаты CustDev.
+CustDev проведён через Google Form: 14 ответов за 20–21.07.2026. В репозитории
+хранятся только агрегаты в `CUSTDEV_EVIDENCE.md`; исходный CSV с временными
+метками и свободными ответами не публикуется. Цифры в pitch deck основаны на
+этом экспорте и не являются доказательством клинической эффективности.
 
 ## Ограничения MVP
 
