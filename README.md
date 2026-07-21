@@ -151,18 +151,14 @@ Hugging Face имеет приоритет, если задан `HF_TOKEN`. За
 | Переменная | Назначение | Значение по умолчанию |
 |---|---|---|
 | `HF_TOKEN` | server-side Hugging Face token | пусто |
-| `HF_BASE_URL` | OpenAI-compatible HF endpoint | `https://router.huggingface.co/v1` |
-| `HF_MODEL` | primary HF model или ваш endpoint model ID | `Qwen/Qwen3-4B-Instruct-2507` |
+| `HF_MODEL` | primary model ID в защищённом HF router | `Qwen/Qwen3-4B-Instruct-2507` |
 | `HF_FALLBACK_MODEL` | fallback HF model | `Qwen/Qwen3-8B` |
-| `HF_TIMEOUT_MS` | timeout одного HF-вызова | `12000` |
 | `HF_MAX_TOKENS` | предел output tokens, сервер дополнительно ограничивает 80–320 | `240` |
 | `GROQ_API_KEY` | server-side GroqCloud key для бесплатного production tier | пусто |
 | `GROQ_MODEL` | Groq model ID | `qwen/qwen3.6-27b` |
 | `AI_API_KEY` | server-side OpenAI key | пусто |
-| `AI_BASE_URL` | OpenAI API base URL | `https://api.openai.com/v1` |
 | `AI_API_MODE` | `responses` или legacy `chat-completions`; для legacy укажите совместимый `AI_MODEL` | `responses` |
 | `AI_MODEL` | OpenAI model ID; pinned snapshot for reproducible evals | `gpt-5-mini-2025-08-07` |
-| `AI_TIMEOUT_MS` | timeout OpenAI-вызова | `14000` |
 | `AI_MAX_OUTPUT_TOKENS` | предел output tokens | `240` |
 | `UPSTASH_REDIS_REST_URL` | server-side Upstash REST endpoint | пусто |
 | `UPSTASH_REDIS_REST_TOKEN` | server-side token с правом `INCR/EXPIRE` | пусто |
@@ -171,7 +167,6 @@ Hugging Face имеет приоритет, если задан `HF_TOKEN`. За
 | `RATE_LIMIT_MAX_REQUESTS` | запросов с одного сетевого адреса за окно | `12` |
 | `RATE_LIMIT_WINDOW_SECONDS` | размер fixed window | `60` |
 | `REQUIRE_PRODUCTION_CONTROLS` | принудительно включить fail-closed gate вне Vercel Production | `false` |
-| `PRIVACY_CONTACT_URL` | публичный конфиденциальный контакт оператора | GitHub Security Advisory |
 
 Не копируйте `.env.local` в Git и не используйте `NEXT_PUBLIC_HF_TOKEN`/`NEXT_PUBLIC_AI_API_KEY`.
 
@@ -245,7 +240,7 @@ pnpm build
 3. Установить Node.js 22 в Project Settings.
 4. Добавить один набор server-side credentials: HF или OpenAI. Для Preview можно оставить ключи пустыми и проверить local fallback.
 5. Создать Upstash Redis и добавить `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, случайный `RATE_LIMIT_HASH_SECRET` длиной 32+ символа.
-6. Указать реальный `PRIVACY_CONTACT_URL` и перепроверить `/privacy`, `/terms`, регион/retention выбранного AI-provider аккаунта.
+6. Перепроверить фиксированный Security Advisory contact, `/privacy`, `/terms`, регион/retention выбранного AI-provider аккаунта.
 7. Install command: `pnpm install --frozen-lockfile --ignore-scripts`; Build command: `pnpm build`.
 8. После deploy проверить `/api/health`, headers CSP/HSTS, LOW/MEDIUM сценарий, `429` при превышении лимита и HIGH-сценарий `Я хочу умереть`.
 
@@ -255,7 +250,7 @@ pnpm build
 
 ## Fine-tuning
 
-Код уже позволяет переключить `HF_MODEL`/`HF_BASE_URL` на отдельный fine-tuned endpoint, но обучать модель на текущих сообщениях нельзя. Сначала нужны versioned taxonomy, экспертно проверенные RU/KK примеры, holdout, длинные safety-диалоги и измеримый baseline.
+Код позволяет переключить `HF_MODEL` на совместимую модель в защищённом Hugging Face router. Для отдельного fine-tuned endpoint его origin нужно явно добавить в серверный allowlist и заново пройти security-evals; обучать модель на текущих сообщениях нельзя. Сначала нужны versioned taxonomy, экспертно проверенные RU/KK примеры, holdout, длинные safety-диалоги и измеримый baseline.
 
 Полный процесс, критерии запуска LoRA/SFT, формат данных и rollback описаны в [docs/AI_QUALITY_AND_TUNING.md](./docs/AI_QUALITY_AND_TUNING.md). Коротко: evals → prompt/few-shot → только затем fine-tuning, если он даёт измеримый выигрыш без safety-регрессии.
 

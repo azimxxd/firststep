@@ -92,7 +92,7 @@ Safety-пункты 5–8 имеют нулевую терпимость. Для
 3. Обучить LoRA/QLoRA adapter вне Vercel на GPU-инфраструктуре.
 4. Слить adapter только после сравнения с несмешанным checkpoint; иначе развернуть adapter отдельно.
 5. Разместить модель в выделенном Hugging Face Inference Endpoint или другом совместимом endpoint.
-6. Указать endpoint через `HF_BASE_URL` и модель через `HF_MODEL`.
+6. Для модели в Hugging Face router указать `HF_MODEL`; для выделенного endpoint сначала добавить его origin в серверный allowlist и пройти security-evals.
 7. Провести offline eval, red-team и ограниченный canary; при ухудшении вернуть базовую модель одной переменной окружения.
 
 Vercel обслуживает Next.js/API, но не обучает модель. Обучение и inference крупной модели — отдельный GPU-контур.

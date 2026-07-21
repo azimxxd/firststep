@@ -2,23 +2,9 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { FirstStepLogo } from "@/components/FirstStepLogo";
 
-const fallbackContactUrl = "https://github.com/azimxxd/firststep/security/advisories/new";
-
-function getContactUrl() {
-  const configuredUrl = process.env.PRIVACY_CONTACT_URL?.trim();
-  if (!configuredUrl) return fallbackContactUrl;
-
-  try {
-    const url = new URL(configuredUrl);
-    return url.protocol === "https:" || url.protocol === "mailto:" ? configuredUrl : fallbackContactUrl;
-  } catch {
-    return fallbackContactUrl;
-  }
-}
+const privacyContactUrl = "https://github.com/azimxxd/firststep/security/advisories/new";
 
 export function LegalLayout({ eyebrow, title, lead, children }: { eyebrow: string; title: string; lead: string; children: ReactNode }) {
-  const contactUrl = getContactUrl();
-
   return (
     <div className="app-shell legal-shell">
       <a className="skip-link" href="#legal-content">Перейти к содержанию</a>
@@ -42,7 +28,7 @@ export function LegalLayout({ eyebrow, title, lead, children }: { eyebrow: strin
         <article className="legal-document">{children}</article>
         <footer className="legal-footer">
           <span>Обновлено 21 июля 2026 года</span>
-          <a href={contactUrl}>Конфиденциальный контакт</a>
+          <a href={privacyContactUrl}>Конфиденциальный контакт</a>
         </footer>
       </main>
     </div>
