@@ -18,7 +18,7 @@
     "check": "eslint . --max-warnings=0 && tsc --noEmit --incremental false && node --experimental-strip-types --no-warnings scripts/run-safety-evals.mjs && node --experimental-strip-types --no-warnings scripts/run-production-config-evals.mjs"
   },
   "dependencies": {
-    "next": "15.5.18",
+    "next": "16.2.11",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "lucide-react": "^0.468.0"
