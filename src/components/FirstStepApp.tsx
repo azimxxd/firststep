@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, Check, ChevronRight, Download, HeartHandshake,
+  ArrowLeft, ArrowRight, Check, ChevronRight, CircleHelp, Download, HeartHandshake,
   LockKeyhole, MessageCircle, Phone, RotateCcw, ShieldCheck, Sparkles,
   ShieldAlert,
 } from "lucide-react";
@@ -100,6 +100,21 @@ const copy = {
     privacyPolicy: "Конфиденциальность",
     termsOfUse: "Условия использования",
     skipToContent: "Перейти к содержанию",
+    tourOpen: "Показать обучение",
+    tourTitle: "Как пользоваться чатом",
+    tourStep: "Шаг",
+    tourSkip: "Пропустить обучение",
+    tourBack: "Назад",
+    tourNext: "Далее",
+    tourDone: "Понятно, начать",
+    tourPromptsTitle: "Можно начать без долгих объяснений",
+    tourPromptsText: "Выбери готовую тему — она отправится как первое сообщение и поможет задать направление разговору.",
+    tourComposerTitle: "Или напиши своими словами",
+    tourComposerText: "Опиши ситуацию в поле внизу. Стрелка отправляет сообщение, Enter тоже отправляет, а Shift + Enter переносит строку.",
+    tourDownloadTitle: "Сохрани разговор, если нужно",
+    tourDownloadText: "Кнопка со стрелкой вниз скачивает переписку в TXT только на твоё устройство — без session ID и технических данных.",
+    tourSupportTitle: "Помощь человека всегда рядом",
+    tourSupportText: "Кнопка с телефоном открывает проверенные контакты Казахстана и готовое сообщение человеку, которому ты доверяешь.",
   },
   kk: {
     eyebrow: "FIRSTSTEP · АНОНИМДІ ЧАТ",
@@ -187,6 +202,21 @@ const copy = {
     privacyPolicy: "Құпиялылық",
     termsOfUse: "Пайдалану шарттары",
     skipToContent: "Негізгі мазмұнға өту",
+    tourOpen: "Нұсқаулықты көрсету",
+    tourTitle: "Чатты қалай пайдалануға болады",
+    tourStep: "Қадам",
+    tourSkip: "Нұсқаулықты өткізу",
+    tourBack: "Артқа",
+    tourNext: "Келесі",
+    tourDone: "Түсінікті, бастау",
+    tourPromptsTitle: "Ұзақ түсіндірмей бастауға болады",
+    tourPromptsText: "Дайын тақырыпты таңда — ол алғашқы хабарлама ретінде жіберіліп, әңгімеге бағыт береді.",
+    tourComposerTitle: "Немесе өз сөзіңмен жаз",
+    tourComposerText: "Төмендегі өріске жағдайды жаз. Көрсеткі хабарламаны жібереді, Enter де жібереді, ал Shift + Enter жаңа жол ашады.",
+    tourDownloadTitle: "Қажет болса, әңгімені сақта",
+    tourDownloadText: "Төмен бағытталған көрсеткі әңгімені TXT түрінде тек құрылғыңа жүктейді — session ID мен техникалық деректерсіз.",
+    tourSupportTitle: "Адам көмегі әрқашан жақын",
+    tourSupportText: "Телефон батырмасы Қазақстандағы тексерілген байланыстарды және сенетін адамға арналған дайын хабарламаны ашады.",
   },
 } as const;
 
@@ -637,9 +667,26 @@ function Onboarding({ language, t, agreed, setAgreed, onContinue, onBack }: { la
 function Chat({ language, t, messages, input, setInput, pending, sendMessage, riskLevel, intervention, setIntervention, conversation, retryMessage, onSupport }: { language: Language; t: (key: keyof typeof copy.ru) => string; messages: ChatMessage[]; input: string; setInput: (value: string) => void; pending: boolean; sendMessage: (message?: string) => Promise<void>; riskLevel: RiskLevel | null; intervention: InterventionType | null; setIntervention: (value: InterventionType | null) => void; conversation: ConversationContext | null; retryMessage: string | null; onSupport: () => void }) {
   const [promptContext, setPromptContext] = useState<PromptContext>("initial");
   const [downloaded, setDownloaded] = useState(false);
+  const [tourOpen, setTourOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("firststep-product-tour-v1") !== "done";
+    } catch {
+      return true;
+    }
+  });
+  const [tourStep, setTourStep] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const downloadStatusTimerRef = useRef<number | null>(null);
+  const tourDialogRef = useRef<HTMLElement | null>(null);
   const quickPrompts = promptSets[language][promptContext];
+  const tourSteps = [
+    { target: "prompts", title: t("tourPromptsTitle"), text: t("tourPromptsText") },
+    { target: "composer", title: t("tourComposerTitle"), text: t("tourComposerText") },
+    { target: "download", title: t("tourDownloadTitle"), text: t("tourDownloadText") },
+    { target: "support", title: t("tourSupportTitle"), text: t("tourSupportText") },
+  ] as const;
+  const activeTourStep = tourSteps[tourStep];
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -651,6 +698,51 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ri
   useEffect(() => () => {
     if (downloadStatusTimerRef.current) window.clearTimeout(downloadStatusTimerRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!tourOpen) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        try { window.localStorage.setItem("firststep-product-tour-v1", "done"); } catch { /* localStorage may be unavailable */ }
+        setTourOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const controls = tourDialogRef.current?.querySelectorAll<HTMLButtonElement>("button:not([disabled])");
+      if (!controls?.length) return;
+      const first = controls.item(0);
+      const last = controls.item(controls.length - 1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.body.style.overflow = "hidden";
+    tourDialogRef.current?.focus();
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      previousFocus?.focus();
+    };
+  }, [tourOpen]);
+
+  const openTour = () => {
+    setTourStep(0);
+    setTourOpen(true);
+  };
+
+  const closeTour = () => {
+    try { window.localStorage.setItem("firststep-product-tour-v1", "done"); } catch { /* localStorage may be unavailable */ }
+    setTourOpen(false);
+  };
+
+  const tourClass = (target: (typeof tourSteps)[number]["target"]) => tourOpen && activeTourStep.target === target ? " tour-target" : "";
 
   const downloadChat = () => {
     const savedAt = new Date();
@@ -682,7 +774,7 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ri
   return (
     <div className="chat-layout section-wrap">
       <section className="chat-panel">
-        <div className="chat-heading"><div><span className="eyebrow">{t("chatTitle")}</span><h1>{t("anonymous")}</h1></div><div className="chat-header-actions"><button className={`support-icon-button ${downloaded ? "downloaded" : ""}`} onClick={downloadChat} aria-label={t("downloadChat")} title={t("downloadChat")}>{downloaded ? <Check size={17} /> : <Download size={17} />}</button><button className="support-icon-button" onClick={onSupport} aria-label={t("urgent")} title={t("urgent")}><Phone size={17} /></button></div></div>
+        <div className="chat-heading"><div><span className="eyebrow">{t("chatTitle")}</span><h1>{t("anonymous")}</h1></div><div className="chat-header-actions"><button className="support-icon-button tour-help-button" onClick={openTour} aria-label={t("tourOpen")} title={t("tourOpen")}><CircleHelp size={17} /></button><button className={`support-icon-button ${downloaded ? "downloaded" : ""}${tourClass("download")}`} onClick={downloadChat} aria-label={t("downloadChat")} title={t("downloadChat")}>{downloaded ? <Check size={17} /> : <Download size={17} />}</button><button className={`support-icon-button${tourClass("support")}`} onClick={onSupport} aria-label={t("urgent")} title={t("urgent")}><Phone size={17} /></button></div></div>
         <span className="sr-only" role="status" aria-live="polite">{downloaded ? t("chatDownloaded") : ""}</span>
         <div className="privacy-banner"><LockKeyhole size={14} /> {t("privacy")}</div>
         {conversation && conversation.topics.length > 0 && <aside className="context-map" aria-label={t("contextMap")}><span className="context-map-label"><Sparkles size={14} /> {t("contextMap")}</span><div className="context-topics">{conversation.topics.map((intent) => intentLabels[language][intent] && <span className={intent === conversation.primaryIntent ? "active" : ""} key={intent}>{intentLabels[language][intent]}</span>)}</div>{conversation.topicShift && <small>{t("contextShift")}</small>}</aside>}
@@ -694,12 +786,13 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ri
           {retryMessage && !pending && <button className="retry-inline" onClick={() => void sendMessage(retryMessage)}><RotateCcw size={15} /> {t("retry")}</button>}
           <div ref={messagesEndRef} />
         </div>
-        <div className="quick-prompts" aria-label={language === "ru" ? "Быстрые ответы" : "Жылдам жауаптар"}>
+        <div className={`quick-prompts${tourClass("prompts")}`} aria-label={language === "ru" ? "Быстрые ответы" : "Жылдам жауаптар"}>
           {quickPrompts.map((prompt) => <button key={prompt.label} onClick={() => { setPromptContext(prompt.context); void sendMessage(prompt.label); }} disabled={pending}>{prompt.label}</button>)}
           {promptContext !== "initial" && <button className="quick-prompts-reset" onClick={() => setPromptContext("initial")} disabled={pending}>{t("otherTopics")}</button>}
         </div>
-        <form className="composer" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendMessage(); } }} placeholder={t("placeholder")} rows={1} maxLength={2000} disabled={pending} aria-label={t("placeholder")} /><button className="send-button" type="submit" disabled={!input.trim() || pending} aria-label={t("send")}><ArrowRight size={18} /></button></form>
+        <form className={`composer${tourClass("composer")}`} onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendMessage(); } }} placeholder={t("placeholder")} rows={1} maxLength={2000} disabled={pending} aria-label={t("placeholder")} /><button className="send-button" type="submit" disabled={!input.trim() || pending} aria-label={t("send")}><ArrowRight size={18} /></button></form>
         <div className="composer-foot"><span>⟡ {2000 - input.length}</span><span>{t("composerSafety")}</span></div>
+        {tourOpen && <><div className="tour-backdrop" aria-hidden="true" /><section ref={tourDialogRef} className={`product-tour tour-dialog-${activeTourStep.target}`} role="dialog" aria-modal="true" aria-labelledby="product-tour-title" aria-describedby="product-tour-description" tabIndex={-1}><div className="tour-topline"><span>{t("tourStep")} {tourStep + 1} / {tourSteps.length}</span><button type="button" onClick={closeTour}>{t("tourSkip")}</button></div><div className="tour-icon" aria-hidden="true"><CircleHelp size={20} /></div><span className="tour-eyebrow">{t("tourTitle")}</span><h2 id="product-tour-title">{activeTourStep.title}</h2><p id="product-tour-description" aria-live="polite">{activeTourStep.text}</p><div className="tour-progress" aria-hidden="true">{tourSteps.map((step, index) => <span className={index === tourStep ? "active" : ""} key={step.target} />)}</div><div className="tour-actions">{tourStep > 0 && <button type="button" className="secondary-button" onClick={() => setTourStep((value) => value - 1)}><ArrowLeft size={15} /> {t("tourBack")}</button>}<button type="button" className="primary-button" onClick={() => { if (tourStep === tourSteps.length - 1) closeTour(); else setTourStep((value) => value + 1); }}>{tourStep === tourSteps.length - 1 ? t("tourDone") : t("tourNext")} {tourStep < tourSteps.length - 1 && <ArrowRight size={15} />}</button></div></section></>}
       </section>
     </div>
   );

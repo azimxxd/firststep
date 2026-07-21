@@ -650,3 +650,40 @@ h1, h2, h3 { font-family: Lora, Georgia, serif; font-weight: 500; letter-spacing
   .support-resource-actions { display: grid; grid-template-columns: 1fr; }
   .resource-call, .resource-message { width: 100%; }
 }
+
+/* First-run product tour: calm, dismissible and always available from the chat header. */
+.tour-help-button { color: #c8ddd6; }
+.tour-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(4,4,7,.72); backdrop-filter: blur(2px); animation: tour-fade .2s ease both; }
+.tour-target { position: relative; z-index: 62; pointer-events: none; outline: 2px solid rgba(155,197,182,.9); outline-offset: 5px; box-shadow: 0 0 0 9px rgba(155,197,182,.1), 0 0 34px rgba(155,197,182,.22); animation: tour-pulse 1.8s ease-in-out infinite; }
+.product-tour { position: fixed; right: max(24px, calc((100vw - 1220px) / 2)); z-index: 70; width: min(410px, calc(100vw - 32px)); padding: 23px; color: var(--foreground); background: linear-gradient(150deg, rgba(30,30,34,.98), rgba(18,18,21,.98)); border: 1px solid rgba(155,197,182,.32); border-radius: 18px; box-shadow: 0 24px 80px rgba(0,0,0,.58), inset 0 1px 0 rgba(255,255,255,.08); outline: 0; animation: reveal-up .3s var(--ease) both; }
+.tour-dialog-prompts, .tour-dialog-composer { top: 92px; }
+.tour-dialog-download, .tour-dialog-support { bottom: 24px; }
+.product-tour:focus-visible { box-shadow: 0 0 0 3px rgba(155,197,182,.2), 0 24px 80px rgba(0,0,0,.58); }
+.tour-topline { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: #9e9ea8; font-size: 11px; }
+.tour-topline > span { font-variant-numeric: tabular-nums; letter-spacing: .06em; text-transform: uppercase; }
+.tour-topline button { min-height: 36px; padding: 5px 0; color: #aaaab4; background: transparent; border: 0; font-size: 11px; text-decoration: underline; text-underline-offset: 3px; }
+.tour-topline button:hover { color: var(--foreground); }
+.tour-icon { width: 38px; height: 38px; display: grid; place-items: center; margin: 18px 0 13px; color: #101315; background: var(--accent); border-radius: 50%; }
+.tour-eyebrow { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.product-tour h2 { margin: 8px 0; font-family: var(--font-ui); font-size: 22px; font-weight: 680; line-height: 1.2; letter-spacing: -.035em; }
+.product-tour p { margin: 0; color: #b9b9c2; font-size: 14px; line-height: 1.6; text-wrap: pretty; }
+.tour-progress { display: flex; gap: 6px; margin: 19px 0; }
+.tour-progress span { width: 22px; height: 3px; background: rgba(255,255,255,.12); border-radius: 99px; transition: width .2s ease, background .2s ease; }
+.tour-progress span.active { width: 38px; background: var(--accent); }
+.tour-actions { display: flex; align-items: center; justify-content: flex-end; gap: 9px; }
+.tour-actions .primary-button, .tour-actions .secondary-button { min-height: 44px; padding: 10px 14px; font-size: 12px; }
+
+@keyframes tour-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tour-pulse { 0%, 100% { box-shadow: 0 0 0 7px rgba(155,197,182,.08), 0 0 26px rgba(155,197,182,.16); } 50% { box-shadow: 0 0 0 11px rgba(155,197,182,.12), 0 0 38px rgba(155,197,182,.28); } }
+
+@media (max-width: 620px) {
+  .chat-header-actions { gap: 5px; }
+  .product-tour { top: auto; right: 16px; bottom: 16px; padding: 20px; }
+  .product-tour h2 { font-size: 20px; }
+  .tour-actions { justify-content: stretch; }
+  .tour-actions > button { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-backdrop, .product-tour, .tour-target { animation: none; }
+}
