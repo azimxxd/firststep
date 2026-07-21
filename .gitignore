@@ -1,0 +1,11 @@
+node_modules/
+.agents/
+.codex/
+.pnpm-store/
+.next/
+out/
+.env*
+!.env.example
+tsconfig.tsbuildinfo
+*.log
+*.log
