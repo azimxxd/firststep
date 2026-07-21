@@ -6,6 +6,9 @@ node_modules/
 out/
 .env*
 !.env.example
+# Raw survey exports can contain timestamps, free text or PII.
+*.csv
+*.csv.zip
+*.xlsx
 tsconfig.tsbuildinfo
-*.log
 *.log
