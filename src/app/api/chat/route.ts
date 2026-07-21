@@ -203,10 +203,12 @@ export async function POST(request: Request) {
         route: analysis.route,
         piiDetected: analysis.piiDetected,
       },
-      intervention: analysis.intervention
-        || (analysis.generationAllowed && conversation.continuedFromContext
-          ? chooseIntervention([conversation.primaryIntent])
-          : undefined),
+      intervention: analysis.generationAllowed && conversation.continuedFromContext
+        ? chooseIntervention(
+          analysis.intents.length > 0 ? analysis.intents : [conversation.primaryIntent],
+          conversation.turnNumber,
+        )
+        : analysis.intervention,
       conversation,
       requestId,
     }, 200, { ...requestHeaders, ...rateLimitHeaders });

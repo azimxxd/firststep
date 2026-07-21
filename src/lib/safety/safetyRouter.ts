@@ -6,14 +6,17 @@ export function routeSafety(riskLevel: RiskLevel): { route: SafetyRoute; generat
   return { route: "SAFE_SUPPORT", generationAllowed: true };
 }
 
-export function chooseIntervention(intents: Intent[]): { type: InterventionType } | undefined {
-  const priority: Array<[Intent, InterventionType]> = [
-    ["PANIC", "GROUNDING"],
-    ["ANXIETY", "BREATHING"],
-    ["LONELINESS", "REACH_OUT"],
-    ["ACADEMIC_STRESS", "NEXT_STEP"],
-    ["GENERAL_DISTRESS", "REFLECTION"],
+export function chooseIntervention(intents: Intent[], turnNumber = 1): { type: InterventionType } | undefined {
+  const priority: Array<[Intent, InterventionType[]]> = [
+    ["PANIC", ["GROUNDING", "BREATHING"]],
+    ["ANXIETY", ["BREATHING", "GROUNDING", "SCREEN_BREAK"]],
+    ["LONELINESS", ["REACH_OUT", "REFLECTION"]],
+    ["ACADEMIC_STRESS", ["NEXT_STEP", "STUDY_RESET", "SCREEN_BREAK"]],
+    ["GENERAL_DISTRESS", ["REFLECTION", "BREATHING", "STUDY_RESET"]],
   ];
   const selected = priority.find(([intent]) => intents.includes(intent));
-  return selected ? { type: selected[1] } : undefined;
+  if (!selected) return undefined;
+  const variants = selected[1];
+  const variantIndex = (Math.max(1, turnNumber) - 1) % variants.length;
+  return { type: variants[variantIndex] };
 }

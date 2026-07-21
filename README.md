@@ -12,7 +12,7 @@ FirstStep — анонимный AI-чат для студентов, котор
 
 - ведёт связный разговор только о стрессе в учёбе и студенческой жизни;
 - понимает свободный текст, а не воспроизводит заранее выбранный сценарий;
-- предлагает быстрые темы, короткие упражнения и 15-минутный фокус-спринт;
+- предлагает самостоятельный набор первых шагов: два ритма дыхания, фокус-спринт, разгрузку 3–2–1 и паузу для глаз 20–20–20;
 - показывает понятное обучение интерфейсу при первом входе и по кнопке `?`;
 - поддерживает русский и казахский языки;
 - позволяет скачать переписку в TXT без session ID и технических данных;
@@ -50,7 +50,7 @@ Production работает по принципу fail-closed: без AI credent
 - CSS без UI-фреймворка, Lucide icons;
 - Vercel, GitHub Actions, CodeQL.
 
-Приоритет AI-провайдеров: `HF_TOKEN` → `GROQ_API_KEY` → `AI_API_KEY`. Локальный demo-provider доступен только вне production.
+Приоритет AI-провайдеров: `GROQ_API_KEY` → `HF_TOKEN` → `AI_API_KEY`. Локальный demo-provider доступен только вне production.
 
 ## Быстрый запуск
 
@@ -71,7 +71,7 @@ pnpm dev
 | `HF_TOKEN` | server-side Hugging Face token |
 | `HF_MODEL` | основная модель HF |
 | `HF_FALLBACK_MODEL` | резервная модель HF |
-| `GROQ_API_KEY` / `GROQ_MODEL` | альтернативный Groq provider |
+| `GROQ_API_KEY` / `GROQ_MODEL` | основной Groq provider при наличии ключа |
 | `AI_API_KEY` / `AI_MODEL` | OpenAI provider |
 | `UPSTASH_REDIS_REST_URL` | Upstash REST URL |
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash REST token |
