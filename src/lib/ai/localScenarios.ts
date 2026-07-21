@@ -1,5 +1,5 @@
 import { classifyIntent } from "@/lib/safety/intentClassifier";
-import type { Intent, Language } from "@/types/safety";
+import type { ConversationContext, Intent, Language } from "@/types/safety";
 
 type ScenarioReply = { ru: string; kk: string };
 
@@ -35,11 +35,61 @@ const scenarioReplies: Partial<Record<Intent, ScenarioReply>> = {
 };
 
 const fallbackReply: ScenarioReply = {
-  ru: "Я рядом, чтобы спокойно разобраться с этим по шагам. Можешь начать с одного предложения: что произошло или что сейчас беспокоит сильнее всего?",
-  kk: "Мұны асықпай, қадамдарға бөліп қарастыруға көмектесемін. Бір сөйлемнен бастасаң болады: не болды немесе қазір сені ең қатты не алаңдатады?",
+  ru: "FirstStep помогает именно со стрессом, связанным с учёбой и студенческой жизнью. Если сейчас давят экзамены, дедлайны, усталость, переезд или отношения в университете, назови одну самую тяжёлую часть.",
+  kk: "FirstStep оқу мен студенттік өмірге байланысты күйзеліске көмектеседі. Егер емтихан, дедлайн, шаршау, көшу немесе университеттегі қарым-қатынас қысым жасаса, ең қиынының біреуін ата.",
 };
 
-export function localScenarioResponse({ message, language }: { message: string; language: Language; history?: Array<{ role: "user" | "assistant"; content: string }> }) {
-  const intent = classifyIntent(message).find((item) => scenarioReplies[item]);
+const progressedReplies: Partial<Record<Intent, ScenarioReply>> = {
+  ACADEMIC_STRESS: {
+    ru: "Теперь картина конкретнее. Не держи все задания в голове: выбери то, у которого раньше срок, и поставь таймер на 15 минут только на первый видимый шаг. Что станет этим первым шагом?",
+    kk: "Енді жағдай анығырақ. Барлық тапсырманы ойда ұстама: мерзімі жақынын таңдап, тек алғашқы нақты қадамға 15 минуттық таймер қой. Сол алғашқы қадам қандай болады?",
+  },
+  LONELINESS: {
+    ru: "Давай упростим первый контакт: не нужно объяснять всё сразу. Можно отправить одному безопасному человеку: «Мне сегодня одиноко и тяжело. Можешь немного побыть на связи?». Кому написать проще всего?",
+    kk: "Алғашқы байланысты жеңілдетейік: бәрін бірден түсіндіру қажет емес. Бір сенімді адамға: «Бүгін өзімді жалғыз әрі ауыр сезініп тұрмын. Біраз байланыста бола аласың ба?» деп жазуға болады. Кімге жазу оңайырақ?",
+  },
+};
+
+const academicLonelinessBridge: ScenarioReply = {
+  ru: "Похоже, дело не только в дедлайнах: на фоне нагрузки тебе ещё и одиноко. Сейчас не нужно решать обе проблемы сразу — отправь одному безопасному человеку короткое сообщение: «У меня тяжёлый вечер с учёбой. Можешь немного побыть на связи?». Кому проще написать: другу, одногруппнику или куратору?",
+  kk: "Мәселе тек дедлайнда емес сияқты: оқу жүктемесінің үстіне жалғыздық та қосылған. Екеуін бірден шешудің қажеті жоқ — бір сенімді адамға: «Оқу жағынан ауыр кеш болып тұр. Біраз байланыста бола аласың ба?» деп жаз. Кімге жазу оңайырақ: досыңа, топтасыңа әлде кураторға ма?",
+};
+
+function academicReply(message: string, language: Language) {
+  if (language === "ru" && /домашк/i.test(message) && /проект/i.test(message)) {
+    return "У тебя до вечера две задачи — домашка и проект. Чтобы не метаться между ними, начни с той, у которой раньше дедлайн, и выдели 15 минут только на первый кусок: открыть материалы, составить план или дописать один блок. У какой задачи срок раньше?";
+  }
+  if (language === "kk" && /тапсырма/i.test(message) && /жоба/i.test(message)) {
+    return "Бүгінге екі міндетің бар — тапсырма мен жоба. Екеуінің арасында ауыса бермеу үшін мерзімі жақынын таңдап, тек алғашқы бөлігіне 15 минут бөл: материалды ашу, жоспар құру немесе бір бөлімді аяқтау. Қайсысының мерзімі жақын?";
+  }
+  return (progressedReplies.ACADEMIC_STRESS || scenarioReplies.ACADEMIC_STRESS)![language];
+}
+
+export function localScenarioResponse({
+  message,
+  language,
+  conversation,
+}: {
+  message: string;
+  language: Language;
+  conversation?: ConversationContext;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
+}) {
+  const classifiedIntent = classifyIntent(message).find((item) => scenarioReplies[item]);
+  const intent = conversation?.primaryIntent && conversation.primaryIntent !== "UNKNOWN"
+    ? conversation.primaryIntent
+    : classifiedIntent;
+
+  if (conversation?.topicShift
+    && conversation.previousPrimaryIntent === "ACADEMIC_STRESS"
+    && intent === "LONELINESS") {
+    return academicLonelinessBridge[language];
+  }
+  if (intent === "ACADEMIC_STRESS" && (conversation?.turnNumber || 1) > 1) {
+    return academicReply(message, language);
+  }
+  if (intent && (conversation?.turnNumber || 1) > 1 && progressedReplies[intent]) {
+    return progressedReplies[intent]![language];
+  }
   return (scenarioReplies[intent || "UNKNOWN"] || fallbackReply)[language];
 }

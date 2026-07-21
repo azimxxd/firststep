@@ -12,3 +12,6 @@ out/
 *.xlsx
 tsconfig.tsbuildinfo
 *.log
+
+.vercel
+.env*
