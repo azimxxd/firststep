@@ -1,0 +1,9 @@
+.agents/
+.codex/
+.github/
+CUSTDEV_EVIDENCE.md
+PITCH_DECK_TEXT.md
+DEMO_RUNBOOK.md
+SECURITY.md
+skills-lock.json
+tsconfig.tsbuildinfo

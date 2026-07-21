@@ -7,7 +7,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { supportResources } from "@/config/supportResources";
-import type { ChatResponse, InterventionType, Language, RiskLevel } from "@/types/safety";
+import type { ChatResponse, ConversationContext, Intent, InterventionType, Language, RiskLevel } from "@/types/safety";
 import { FirstStepLogo } from "@/components/FirstStepLogo";
 
 type Screen = "landing" | "onboarding" | "chat" | "support";
@@ -16,24 +16,28 @@ type ChatMessage = { role: "ai" | "user"; content: string };
 const copy = {
   ru: {
     eyebrow: "FIRSTSTEP · АНОНИМНЫЙ ЧАТ",
-    hero: "Когда тяжело, можно просто написать.",
-    subtitle: "Анонимный чат, где можно выговориться, разобраться в мыслях и найти один посильный шаг.",
+    hero: "Когда учёба давит, можно начать с одного сообщения.",
+    subtitle: "Чат для студентов: помогает разобрать стресс из-за экзаменов, дедлайнов, нагрузки и перемен — и выбрать один посильный шаг.",
     start: "Начать анонимно",
     urgent: "Нужна срочная помощь?",
     notice: "Это ИИ-сервис поддержки. Он не ставит диагнозы и не заменяет психолога или врача.",
     onboardingTitle: "Перед началом — важное",
     onboardingLead: "Ты общаешься с искусственным интеллектом.",
-    onboardingBody: "FirstStep может помочь выговориться, структурировать мысли, попробовать простые техники самопомощи и понять, куда обратиться дальше.",
+    onboardingBody: "FirstStep помогает только со стрессом в учёбе и студенческой жизни: назвать главное, попробовать короткую технику и выбрать следующий шаг.",
+    onboardingBack: "назад",
+    onboardingPoint1: "назвать, что именно давит в учёбе или студенческой жизни",
+    onboardingPoint2: "попробовать одну простую технику самоподдержки",
+    onboardingPoint3: "выбрать посильный шаг на ближайшие 5–15 минут",
     onboardingWarningTitle: "Если сейчас небезопасно",
     onboardingWarning: "Если тебе или кому-то рядом прямо сейчас угрожает опасность, не оставайся с этим один: обратись в экстренные службы или к человеку, которому доверяешь.",
     emergencyServices: "экстренные службы",
     trustedPerson: "человек, которому доверяешь",
     agree: "Я понимаю и хочу продолжить",
     continue: "Продолжить анонимно",
-    chatTitle: "Твоё пространство",
-    anonymous: "анонимная сессия",
-    greeting: "Привет. Здесь можно не представляться. Расскажи, что сейчас беспокоит тебя больше всего.",
-    privacy: "Личные данные автоматически скрываются перед обработкой.",
+    chatTitle: "Стресс в учёбе",
+    anonymous: "сессия без аккаунта",
+    greeting: "Привет. Что сейчас сильнее всего давит: экзамен, дедлайн, нагрузка, усталость или перемены в студенческой жизни?",
+    privacy: "Телефон и email скрываются перед отправкой AI-провайдеру; полная анонимизация не гарантируется.",
     placeholder: "Напиши, что происходит…",
     send: "Отправить",
     skip: "Пропустить",
@@ -60,27 +64,55 @@ const copy = {
     reflectionText: "Попробуй назвать: что я чувствую, что мне сейчас нужно и какой самый добрый шаг я могу сделать для себя?",
     available: "доступно",
     needsSetup: "нужно настроить",
+    otherTopics: "Другие темы",
+    userLabel: "ты",
+    composerSafety: "сообщение не сохраняется приложением",
+    interventionTag: "ОДИН МАЛЕНЬКИЙ ШАГ",
+    breathPattern: "вдох 4 · пауза 2 · выдох 6",
+    trustedMessage: "Мне сейчас непросто. Можешь побыть на связи?",
+    resourcesHint: "Круглосуточная конфиденциальная помощь: 111",
+    dangerHint: "При непосредственной опасности звони 112",
+    resourceListTitle: "Проверенные ресурсы Казахстана",
+    officialSource: "официальный источник",
+    contextMap: "Карта давления",
+    contextShift: "Новая тема учтена",
+    focusTaskLabel: "На чём сфокусироваться",
+    focusTaskPlaceholder: "Например: план проекта",
+    focusStart: "Начать 15 минут",
+    focusPause: "Пауза",
+    focusResume: "Продолжить",
+    focusReset: "Сбросить",
+    focusComplete: "Спринт завершён. Теперь выбери: продолжить ещё 15 минут или сделать короткую паузу.",
+    focusPrivacy: "Задача и таймер остаются только в этой вкладке.",
+    retry: "Отправить ещё раз",
+    privacyPolicy: "Конфиденциальность",
+    termsOfUse: "Условия использования",
+    skipToContent: "Перейти к содержанию",
   },
   kk: {
     eyebrow: "FIRSTSTEP · АНОНИМДІ ЧАТ",
-    hero: "Қиын болса, жай ғана жазуға болады.",
-    subtitle: "Анонимді чат: ішіңдегіні айтып, ойларыңды реттеп, дәл қазір қолайлы бір қадамды таңдауға болады.",
+    hero: "Оқу қысым жасаса, бір хабарламадан бастауға болады.",
+    subtitle: "Студенттерге арналған чат: емтихан, дедлайн, жүктеме және өзгерістерден туған күйзелісті талдап, бір қолайлы қадамды таңдауға көмектеседі.",
     start: "Анонимді бастау",
     urgent: "Шұғыл көмек керек пе?",
     notice: "Бұл — AI қолдау қызметі. Ол диагноз қоймайды және психологты немесе дәрігерді алмастырмайды.",
     onboardingTitle: "Бастамас бұрын — маңызды",
     onboardingLead: "Сен жасанды интеллектпен сөйлесіп жатырсың.",
-    onboardingBody: "FirstStep ішіңдегіні айтуға, ойларды реттеуге, қарапайым өзін-өзі қолдау тәсілдерін байқап көруге және әрі қарай кімге жүгінуге болатынын түсінуге көмектеседі.",
+    onboardingBody: "FirstStep тек оқу мен студенттік өмірдегі күйзеліске көмектеседі: ең маңыздысын атап, қысқа тәсілді байқап, келесі қадамды таңдауға болады.",
+    onboardingBack: "артқа",
+    onboardingPoint1: "оқуда немесе студенттік өмірде не қысым жасайтынын атау",
+    onboardingPoint2: "өзін-өзі қолдаудың бір қарапайым тәсілін байқап көру",
+    onboardingPoint3: "алдағы 5–15 минутқа қолайлы бір қадам таңдау",
     onboardingWarningTitle: "Қазір қауіпсіз болмаса",
     onboardingWarning: "Егер саған немесе жаныңдағы адамға дәл қазір қауіп төніп тұрса, мұны жалғыз көтерме: жедел қызметке немесе сенетін адамыңа хабарлас.",
     emergencyServices: "жедел қызмет",
     trustedPerson: "сенетін адамың",
     agree: "Түсіндім, жалғастырғым келеді",
     continue: "Анонимді жалғастыру",
-    chatTitle: "Сенің кеңістігің",
-    anonymous: "анонимді сессия",
-    greeting: "Сәлем. Мұнда өзіңді таныстырудың қажеті жоқ. Қазір сені ең көп не мазалайды?",
-    privacy: "Жеке деректер өңдеуге жіберілмес бұрын автоматты түрде жасырылады.",
+    chatTitle: "Оқудағы күйзеліс",
+    anonymous: "аккаунтсыз сессия",
+    greeting: "Сәлем. Қазір ең қатты не қысым жасайды: емтихан, дедлайн, жүктеме, шаршау әлде студенттік өмірдегі өзгерістер ме?",
+    privacy: "Телефон мен email AI-провайдерге жіберілер алдында жасырылады; толық анонимдендіруге кепілдік берілмейді.",
     placeholder: "Не болып жатқанын жаз…",
     send: "Жіберу",
     skip: "Өткізу",
@@ -107,8 +139,55 @@ const copy = {
     reflectionText: "Өзіңнен сұрап көр: қазір не сезіп тұрмын, маған не керек және өзіме жасай алатын ең мейірімді қадам қандай?",
     available: "қолжетімді",
     needsSetup: "орнату қажет",
+    otherTopics: "Басқа тақырыптар",
+    userLabel: "сен",
+    composerSafety: "хабарлама қолданбада сақталмайды",
+    interventionTag: "БІР КІШКЕНТАЙ ҚАДАМ",
+    breathPattern: "дем алу 4 · үзіліс 2 · дем шығару 6",
+    trustedMessage: "Маған қазір қиын. Біраз байланыста бола аласың ба?",
+    resourcesHint: "Тәулік бойы құпия көмек: 111",
+    dangerHint: "Тікелей қауіп болса, 112 нөміріне қоңырау шал",
+    resourceListTitle: "Қазақстанның тексерілген ресурстары",
+    officialSource: "ресми дереккөз",
+    contextMap: "Қысым картасы",
+    contextShift: "Жаңа тақырып ескерілді",
+    focusTaskLabel: "Неге назар аударамыз",
+    focusTaskPlaceholder: "Мысалы: жоба жоспары",
+    focusStart: "15 минутты бастау",
+    focusPause: "Үзіліс",
+    focusResume: "Жалғастыру",
+    focusReset: "Қалпына келтіру",
+    focusComplete: "Спринт аяқталды. Енді тағы 15 минут жалғастыруды немесе қысқа үзілісті таңда.",
+    focusPrivacy: "Тапсырма мен таймер тек осы бетте қалады.",
+    retry: "Қайта жіберу",
+    privacyPolicy: "Құпиялылық",
+    termsOfUse: "Пайдалану шарттары",
+    skipToContent: "Негізгі мазмұнға өту",
   },
 } as const;
+
+const intentLabels: Record<Language, Partial<Record<Intent, string>>> = {
+  ru: {
+    GENERAL_DISTRESS: "тяжёлое состояние",
+    ANXIETY: "тревога",
+    ACADEMIC_STRESS: "учебная нагрузка",
+    LONELINESS: "одиночество",
+    BULLYING: "небезопасное общение",
+    FAMILY_PRESSURE: "давление семьи",
+    PANIC: "сильная тревога",
+    SELF_HARM_RISK: "нужна помощь сейчас",
+  },
+  kk: {
+    GENERAL_DISTRESS: "ауыр күй",
+    ANXIETY: "алаңдау",
+    ACADEMIC_STRESS: "оқу жүктемесі",
+    LONELINESS: "жалғыздық",
+    BULLYING: "қауіпсіз емес қарым-қатынас",
+    FAMILY_PRESSURE: "отбасы қысымы",
+    PANIC: "қатты алаңдау",
+    SELF_HARM_RISK: "қазір көмек керек",
+  },
+};
 
 const breathingPhases = [
   { key: "inhale" as const, seconds: 4 },
@@ -233,7 +312,13 @@ export default function FirstStepApp() {
   const [pending, setPending] = useState(false);
   const [lastRisk, setLastRisk] = useState<RiskLevel | null>(null);
   const [intervention, setIntervention] = useState<InterventionType | null>(null);
+  const [conversation, setConversation] = useState<ConversationContext | null>(null);
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const t = (key: keyof typeof copy.ru) => copy[language][key];
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   const changeLanguage = (next: Language) => {
     setLanguage(next);
@@ -244,6 +329,8 @@ export default function FirstStepApp() {
     if (!agreed) return;
     setSessionId(newSessionId());
     setMessages([{ role: "ai", content: t("greeting") }]);
+    setConversation(null);
+    setRetryMessage(null);
     setScreen("chat");
   };
 
@@ -251,6 +338,7 @@ export default function FirstStepApp() {
     const trimmed = message.trim();
     if (!trimmed || pending || !sessionId) return;
     setInput("");
+    setRetryMessage(null);
     setMessages((current) => [...current, { role: "user", content: trimmed }]);
     setPending(true);
     try {
@@ -269,7 +357,9 @@ export default function FirstStepApp() {
       setMessages((current) => [...current, { role: "ai", content: payload.message }]);
       setLastRisk(payload.safety.riskLevel);
       setIntervention(payload.intervention?.type || null);
+      setConversation(payload.conversation);
     } catch {
+      setRetryMessage(trimmed);
       setMessages((current) => [
         ...current,
         {
@@ -291,11 +381,14 @@ export default function FirstStepApp() {
     setMessages([]);
     setLastRisk(null);
     setIntervention(null);
+    setConversation(null);
+    setRetryMessage(null);
     setInput("");
   };
 
   return (
     <main className={`app-shell ${screen === "chat" ? "chat-mode" : ""}`}>
+      <a className="skip-link" href="#main-content">{t("skipToContent")}</a>
       <header className="topbar">
         <button className="brand" onClick={restart} aria-label="FirstStep home">
           <span className="brand-mark"><FirstStepLogo size={30} /></span>
@@ -308,10 +401,12 @@ export default function FirstStepApp() {
         </div>
       </header>
 
-      {screen === "landing" && <Landing language={language} t={t} onStart={() => setScreen("onboarding")} onSupport={() => setScreen("support")} />}
-      {screen === "onboarding" && <Onboarding t={t} agreed={agreed} setAgreed={setAgreed} onContinue={continueAnonymously} onBack={() => setScreen("landing")} />}
-      {screen === "support" && <Support t={t} onBack={() => setScreen("landing")} />}
-      {screen === "chat" && <Chat language={language} t={t} messages={messages} input={input} setInput={setInput} pending={pending} sendMessage={sendMessage} riskLevel={lastRisk} intervention={intervention} setIntervention={setIntervention} onSupport={() => setScreen("support")} />}
+      <div id="main-content">
+        {screen === "landing" && <Landing language={language} t={t} onStart={() => setScreen("onboarding")} onSupport={() => setScreen("support")} />}
+        {screen === "onboarding" && <Onboarding language={language} t={t} agreed={agreed} setAgreed={setAgreed} onContinue={continueAnonymously} onBack={() => setScreen("landing")} />}
+        {screen === "support" && <Support language={language} t={t} onBack={() => setScreen(sessionId ? "chat" : "landing")} />}
+        {screen === "chat" && <Chat language={language} t={t} messages={messages} input={input} setInput={setInput} pending={pending} sendMessage={sendMessage} riskLevel={lastRisk} intervention={intervention} setIntervention={setIntervention} conversation={conversation} retryMessage={retryMessage} onSupport={() => setScreen("support")} />}
+      </div>
     </main>
   );
 }
@@ -377,6 +472,7 @@ function Landing({ language, t, onStart, onSupport }: { language: Language; t: (
         </div>
       </section>
       <LandingStory language={language} story={story} />
+      <footer className="landing-footer section-wrap"><span>© 2026 FirstStep</span><nav aria-label={language === "ru" ? "Правовые документы" : "Құқықтық құжаттар"}><a href="/privacy">{t("privacyPolicy")}</a><a href="/terms">{t("termsOfUse")}</a></nav></footer>
     </div>
   );
 }
@@ -490,22 +586,23 @@ function LandingStory({ language, story }: { language: Language; story: (typeof 
   );
 }
 
-function Onboarding({ t, agreed, setAgreed, onContinue, onBack }: { t: (key: keyof typeof copy.ru) => string; agreed: boolean; setAgreed: (value: boolean) => void; onContinue: () => void; onBack: () => void }) {
+function Onboarding({ language, t, agreed, setAgreed, onContinue, onBack }: { language: Language; t: (key: keyof typeof copy.ru) => string; agreed: boolean; setAgreed: (value: boolean) => void; onContinue: () => void; onBack: () => void }) {
   return (
     <div className="center-page">
       <div className="onboarding-card">
-        <button className="back-link" onClick={onBack}><ArrowLeft size={15} /> назад</button>
+        <button className="back-link" onClick={onBack}><ArrowLeft size={15} /> {t("onboardingBack")}</button>
         <div className="notice-icon"><ShieldCheck size={24} /></div>
         <span className="eyebrow">SAFETY FIRST</span>
         <h1>{t("onboardingTitle")}</h1>
         <p className="onboarding-lead">{t("onboardingLead")}</p>
         <p>{t("onboardingBody")}</p>
-        <div className="notice-list"><span>• выговориться и структурировать мысли</span><span>• попробовать простую технику самопомощи</span><span>• понять, какой следующий шаг доступен</span></div>
+        <div className="notice-list"><span>• {t("onboardingPoint1")}</span><span>• {t("onboardingPoint2")}</span><span>• {t("onboardingPoint3")}</span></div>
         <div className="warning-box" role="note">
           <div className="warning-box-head"><span className="warning-box-icon"><ShieldAlert size={16} /></span><strong>{t("onboardingWarningTitle")}</strong></div>
           <p>{t("onboardingWarning")}</p>
           <div className="warning-box-actions"><span><Phone size={13} /> {t("emergencyServices")}</span><span><HeartHandshake size={13} /> {t("trustedPerson")}</span></div>
         </div>
+        <nav className="legal-inline" aria-label={language === "ru" ? "Правовые документы" : "Құқықтық құжаттар"}><a href="/privacy">{t("privacyPolicy")}</a><span>·</span><a href="/terms">{t("termsOfUse")}</a></nav>
         <label className="check-row"><input type="checkbox" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} /><span className="custom-check"><Check size={12} /></span><span>{t("agree")}</span></label>
         <button className="primary-button full" disabled={!agreed} onClick={onContinue}>{t("continue")} <ArrowRight size={17} /></button>
       </div>
@@ -513,26 +610,38 @@ function Onboarding({ t, agreed, setAgreed, onContinue, onBack }: { t: (key: key
   );
 }
 
-function Chat({ language, t, messages, input, setInput, pending, sendMessage, riskLevel, intervention, setIntervention, onSupport }: { language: Language; t: (key: keyof typeof copy.ru) => string; messages: ChatMessage[]; input: string; setInput: (value: string) => void; pending: boolean; sendMessage: (message?: string) => Promise<void>; riskLevel: RiskLevel | null; intervention: InterventionType | null; setIntervention: (value: InterventionType | null) => void; onSupport: () => void }) {
+function Chat({ language, t, messages, input, setInput, pending, sendMessage, riskLevel, intervention, setIntervention, conversation, retryMessage, onSupport }: { language: Language; t: (key: keyof typeof copy.ru) => string; messages: ChatMessage[]; input: string; setInput: (value: string) => void; pending: boolean; sendMessage: (message?: string) => Promise<void>; riskLevel: RiskLevel | null; intervention: InterventionType | null; setIntervention: (value: InterventionType | null) => void; conversation: ConversationContext | null; retryMessage: string | null; onSupport: () => void }) {
   const [promptContext, setPromptContext] = useState<PromptContext>("initial");
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const quickPrompts = promptSets[language][promptContext];
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+      block: "end",
+    });
+  }, [messages, pending, intervention]);
+
   return (
     <div className="chat-layout section-wrap">
       <section className="chat-panel">
         <div className="chat-heading"><div><span className="eyebrow">{t("chatTitle")}</span><h1>{t("anonymous")}</h1></div><button className="support-icon-button" onClick={onSupport} aria-label={t("urgent")}><Phone size={17} /></button></div>
         <div className="privacy-banner"><LockKeyhole size={14} /> {t("privacy")}</div>
+        {conversation && conversation.topics.length > 0 && <aside className="context-map" aria-label={t("contextMap")}><span className="context-map-label"><Sparkles size={14} /> {t("contextMap")}</span><div className="context-topics">{conversation.topics.map((intent) => intentLabels[language][intent] && <span className={intent === conversation.primaryIntent ? "active" : ""} key={intent}>{intentLabels[language][intent]}</span>)}</div>{conversation.topicShift && <small>{t("contextShift")}</small>}</aside>}
         <div className="messages" aria-live="polite">
-          {messages.map((message, index) => <div className={`message-row ${message.role}`} key={`${message.role}-${index}`}><div className="avatar">{message.role === "ai" ? <Sparkles size={14} /> : "ты"}</div><div className="message-bubble">{message.content}</div></div>)}
+          {messages.map((message, index) => <div className={`message-row ${message.role}`} key={`${message.role}-${index}`}><div className="avatar">{message.role === "ai" ? <Sparkles size={14} /> : t("userLabel")}</div><div className="message-bubble">{message.content}</div></div>)}
           {pending && <div className="message-row ai"><div className="avatar"><Sparkles size={14} /></div><div className="message-bubble typing"><i /><i /><i /></div></div>}
           {riskLevel === "HIGH" && <button className="escalation-inline" onClick={onSupport}><span><Phone size={15} /> {t("highRisk")}</span><ChevronRight size={16} /></button>}
           {intervention && <InterventionCard type={intervention} t={t} onClose={() => setIntervention(null)} />}
+          {retryMessage && !pending && <button className="retry-inline" onClick={() => void sendMessage(retryMessage)}><RotateCcw size={15} /> {t("retry")}</button>}
+          <div ref={messagesEndRef} />
         </div>
         <div className="quick-prompts" aria-label={language === "ru" ? "Быстрые ответы" : "Жылдам жауаптар"}>
           {quickPrompts.map((prompt) => <button key={prompt.label} onClick={() => { setPromptContext(prompt.context); void sendMessage(prompt.label); }} disabled={pending}>{prompt.label}</button>)}
-          {promptContext !== "initial" && <button className="quick-prompts-reset" onClick={() => setPromptContext("initial")} disabled={pending}>{language === "ru" ? "Другие темы" : "Басқа тақырыптар"}</button>}
+          {promptContext !== "initial" && <button className="quick-prompts-reset" onClick={() => setPromptContext("initial")} disabled={pending}>{t("otherTopics")}</button>}
         </div>
-        <form className="composer" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}><textarea value={input} onChange={(event) => setInput(event.target.value)} placeholder={t("placeholder")} rows={1} maxLength={2000} disabled={pending} /><button className="send-button" type="submit" disabled={!input.trim() || pending} aria-label={t("send")}><ArrowRight size={18} /></button></form>
-        <div className="composer-foot"><span>⟡ 2000</span><span>безопасная обработка сообщения</span></div>
+        <form className="composer" onSubmit={(event) => { event.preventDefault(); void sendMessage(); }}><textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void sendMessage(); } }} placeholder={t("placeholder")} rows={1} maxLength={2000} disabled={pending} aria-label={t("placeholder")} /><button className="send-button" type="submit" disabled={!input.trim() || pending} aria-label={t("send")}><ArrowRight size={18} /></button></form>
+        <div className="composer-foot"><span>⟡ {2000 - input.length}</span><span>{t("composerSafety")}</span></div>
       </section>
     </div>
   );
@@ -547,28 +656,69 @@ function InterventionCard({ type, t, onClose }: { type: InterventionType; t: (ke
     REFLECTION: { title: t("reflection"), text: t("reflectionText") },
   };
   const item = data[type];
-  return <div className="intervention-card"><div className="intervention-top"><span className="intervention-tag">ONE SMALL STEP</span><button onClick={onClose} className="close-button" aria-label="Close">×</button></div><h3>{item.title}</h3><p>{item.text}</p>{type === "BREATHING" ? <BreathingExercise t={t} /> : <button className="secondary-button" onClick={onClose}>{t("skip")} <Check size={15} /></button>}</div>;
+  return <div className="intervention-card"><div className="intervention-top"><span className="intervention-tag">{t("interventionTag")}</span><button onClick={onClose} className="close-button" aria-label={t("skip")}>×</button></div><h3>{item.title}</h3><p>{item.text}</p>{type === "BREATHING" ? <BreathingExercise t={t} /> : type === "NEXT_STEP" ? <FocusSprint t={t} /> : <button className="secondary-button" onClick={onClose}>{t("skip")} <Check size={15} /></button>}</div>;
+}
+
+function FocusSprint({ t }: { t: (key: keyof typeof copy.ru) => string }) {
+  const [task, setTask] = useState("");
+  const [seconds, setSeconds] = useState(15 * 60);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    if (!active) return;
+    const timer = window.setInterval(() => {
+      setSeconds((value) => {
+        if (value <= 1) {
+          setActive(false);
+          return 0;
+        }
+        return value - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  const reset = () => {
+    setActive(false);
+    setSeconds(15 * 60);
+  };
+  const time = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+
+  return <div className="focus-sprint"><label htmlFor="focus-task">{t("focusTaskLabel")}</label><input id="focus-task" value={task} onChange={(event) => setTask(event.target.value)} placeholder={t("focusTaskPlaceholder")} maxLength={90} /><div className="focus-sprint-controls"><strong aria-live="polite">{time}</strong><button className="secondary-button" disabled={!task.trim()} onClick={() => { if (seconds === 0) setSeconds(15 * 60); setActive((value) => !value); }}>{active ? t("focusPause") : seconds < 15 * 60 && seconds > 0 ? t("focusResume") : t("focusStart")}</button>{seconds < 15 * 60 && <button className="focus-reset" onClick={reset}><RotateCcw size={14} /> {t("focusReset")}</button>}</div>{seconds === 0 && <p className="focus-complete"><Check size={15} /> {t("focusComplete")}</p>}<small>{t("focusPrivacy")}</small></div>;
 }
 
 function BreathingExercise({ t }: { t: (key: keyof typeof copy.ru) => string }) {
   const [active, setActive] = useState(false);
   const [phaseIndex, setPhaseIndex] = useState(0);
   const [seconds, setSeconds] = useState(breathingPhases[0].seconds);
+  const [totalSeconds, setTotalSeconds] = useState(60);
   useEffect(() => {
     if (!active) return;
-    const timer = window.setInterval(() => setSeconds((value) => {
-      if (value <= 1) {
-        setPhaseIndex((index) => (index + 1) % breathingPhases.length);
-        return breathingPhases[(phaseIndex + 1) % breathingPhases.length].seconds;
-      }
-      return value - 1;
-    }), 1000);
+    const timer = window.setInterval(() => {
+      setTotalSeconds((value) => {
+        if (value <= 1) {
+          setActive(false);
+          setPhaseIndex(0);
+          setSeconds(breathingPhases[0].seconds);
+          return 60;
+        }
+        return value - 1;
+      });
+      setSeconds((value) => {
+        if (value <= 1) {
+          setPhaseIndex((index) => (index + 1) % breathingPhases.length);
+          return breathingPhases[(phaseIndex + 1) % breathingPhases.length].seconds;
+        }
+        return value - 1;
+      });
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [active, phaseIndex]);
   const phase = breathingPhases[phaseIndex];
-  return <div className="breathing-widget"><button className={`breath-circle ${active ? "breathing" : ""}`} onClick={() => setActive(true)}><span>{active ? seconds : "60"}</span><small>{active ? t(phase.key) : t("tryExercise")}</small></button><div className="breath-controls">{active && <button onClick={() => { setActive(false); setPhaseIndex(0); setSeconds(4); }}><RotateCcw size={13} /> {t("skip")}</button>}<span>вдох 4 · пауза 2 · выдох 6</span></div></div>;
+  return <div className="breathing-widget"><button className={`breath-circle ${active ? "breathing" : ""}`} onClick={() => { setTotalSeconds(60); setActive(true); }}><span>{active ? seconds : totalSeconds}</span><small>{active ? t(phase.key) : t("tryExercise")}</small></button><div className="breath-controls">{active && <button onClick={() => { setActive(false); setPhaseIndex(0); setSeconds(4); setTotalSeconds(60); }}><RotateCcw size={13} /> {t("skip")}</button>}<span>{t("breathPattern")}</span></div></div>;
 }
 
-function Support({ t, onBack }: { t: (key: keyof typeof copy.ru) => string; onBack: () => void }) {
-  return <div className="support-page section-wrap"><button className="back-link" onClick={onBack}><ArrowLeft size={15} /> {t("back")}</button><div className="support-hero"><div className="support-icon"><HeartHandshake size={28} /></div><span className="eyebrow">HUMAN SUPPORT</span><h1>{t("supportTitle")}</h1><p>{t("supportLead")}</p></div><div className="support-actions"><button className="support-action"><span className="support-action-icon"><MessageCircle size={18} /></span><span><b>{t("trusted")}</b><small>Напиши: «Мне непросто. Можешь побыть на связи?»</small></span><ChevronRight size={17} /></button><button className="support-action"><span className="support-action-icon"><Phone size={18} /></span><span><b>{t("resources")}</b><small>Контакты должны быть проверены перед публикацией.</small></span><ChevronRight size={17} /></button><button className="support-action danger-action"><span className="support-action-icon"><ShieldCheck size={18} /></span><span><b>{t("danger")}</b><small>Обратись в местные экстренные службы прямо сейчас.</small></span><ChevronRight size={17} /></button></div><div className="resource-list"><h2>Доступные ресурсы</h2>{supportResources.map((resource) => <div className="resource-row" key={resource.id}><div><b>{resource.title}</b><p>{resource.description}</p></div><span className={resource.verified ? "verified" : "placeholder"}>{resource.verified ? t("available") : t("needsSetup")}</span></div>)}</div></div>;
+function Support({ language, t, onBack }: { language: Language; t: (key: keyof typeof copy.ru) => string; onBack: () => void }) {
+  const trustedMessage = t("trustedMessage");
+  return <div className="support-page section-wrap"><button className="back-link" onClick={onBack}><ArrowLeft size={15} /> {t("back")}</button><div className="support-hero"><div className="support-icon"><HeartHandshake size={28} /></div><span className="eyebrow">HUMAN SUPPORT</span><h1>{t("supportTitle")}</h1><p>{t("supportLead")}</p></div><div className="support-actions"><a className="support-action" href={`sms:?body=${encodeURIComponent(trustedMessage)}`}><span className="support-action-icon"><MessageCircle size={18} /></span><span><b>{t("trusted")}</b><small>{trustedMessage}</small></span><ChevronRight size={17} /></a><a className="support-action" href="tel:111"><span className="support-action-icon"><Phone size={18} /></span><span><b>{t("resources")}</b><small>{t("resourcesHint")}</small></span><ChevronRight size={17} /></a><a className="support-action danger-action" href="tel:112"><span className="support-action-icon"><ShieldCheck size={18} /></span><span><b>{t("danger")}</b><small>{t("dangerHint")}</small></span><ChevronRight size={17} /></a></div><div className="resource-list"><h2>{t("resourceListTitle")}</h2>{supportResources.map((resource) => <div className="resource-row" key={resource.id}><div><b>{resource.title[language]}</b><p>{resource.description[language]}</p><a className="resource-source" href={resource.sourceHref} target="_blank" rel="noreferrer">{t("officialSource")}</a></div><a className="resource-contact" href={resource.href}>{resource.contact}</a></div>)}</div></div>;
 }

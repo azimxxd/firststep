@@ -33,10 +33,20 @@ export interface SafetyAnalysis {
   intervention?: { type: InterventionType };
 }
 
+export interface ConversationContext {
+  primaryIntent: Intent;
+  previousPrimaryIntent?: Intent;
+  topics: Intent[];
+  topicShift: boolean;
+  continuedFromContext: boolean;
+  turnNumber: number;
+}
+
 export interface ChatResponse {
   message: string;
   safety: Pick<SafetyAnalysis, "riskLevel" | "intents" | "generationAllowed" | "route"> & {
     piiDetected: string[];
   };
   intervention?: { type: InterventionType };
+  conversation: ConversationContext;
 }

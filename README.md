@@ -1,150 +1,278 @@
 # FirstStep
 
-FirstStep — рабочий MVP для направления `Social & Human Capital / Mental Health & Well-being` хакатона Tech Vision 2026.
+FirstStep — safety-first чат для студентов, которым трудно из-за экзаменов, дедлайнов, перегрузки, усталости, переезда или отношений в университетской среде. Сервис помогает назвать одну конкретную проблему и выбрать один посильный шаг на ближайшие 5–15 минут.
 
-Это анонимный первый шаг к поддержке для студента, которому тяжело начать разговор с человеком. Сервис помогает описать состояние своими словами, выбрать один безопасный следующий шаг и не пропустить ситуацию, где нужен человек.
+Проект создан как MVP для Tech Vision 2026, трек Social & Human Capital. Это не психолог, не медицинский продукт, не диагностика и не замена экстренной или профессиональной помощи.
 
-> FirstStep не является психологом, врачом, диагностической системой или заменой очной помощи.
+Технический статус: код подготовлен к контролируемому Vercel Production deploy с fail-closed readiness gate. Без AI credentials, Upstash Redis и HMAC-секрета production `/api/chat` вернёт `503`, а не запустится в небезопасной конфигурации. Это не заменяет независимую клиническую, legal, privacy и accessibility проверку перед университетским пилотом.
 
-## Одна острая боль
+## Проблема и пользователь
 
-**Пользователь:** студент первого курса 17–20 лет, особенно после переезда или во время сессии.
+Основной пользователь — студент 17–21 года, особенно первокурсник или человек, который недавно переехал. Его проблема формулируется так: «Мне тяжело из-за учёбы или перемен, но я не знаю, с чего начать и достаточно ли это серьёзно, чтобы обратиться к человеку».
 
-**Боль:** тревога и перегрузка уже мешают действовать, но человек не понимает, достаточно ли это серьёзно для обращения за помощью, и боится раскрывать личность.
+FirstStep решает узкую часть этой проблемы:
 
-## Основной сценарий
+- даёт возможность начать без аккаунта и представления;
+- помогает отделить главный источник давления от общего ощущения «всё навалилось»;
+- предлагает только один маленький шаг, а не длинный список советов;
+- при признаках высокого риска отключает генеративный AI и переводит пользователя к человеческой помощи.
 
-1. Пользователь видит честное предупреждение об AI и ограничениях сервиса.
-2. Пишет состояние своими словами или выбирает быстрый старт.
-3. Сообщение очищается от очевидных email и телефонов.
-4. Safety-слой определяет риск и намерение до вызова генеративной модели.
-5. Для LOW/MEDIUM сервис возвращает короткий ответ и одну практическую интервенцию.
-6. Для HIGH генерация отключается и включается маршрут к человеческой помощи.
+FirstStep не решает домашние задания, не отвечает как универсальный ассистент, не ставит диагнозы, не назначает лекарства и не пытается заменить реальные отношения.
+
+## Пользовательский сценарий
+
+1. Пользователь читает ограничения и подтверждает согласие продолжить.
+2. Пишет свободное сообщение или выбирает student-stress тему.
+3. Очевидные email и телефоны редактируются до внешнего AI-вызова.
+4. Детерминированный safety engine определяет risk и intent, а conversation router — продолжение или смену темы.
+5. `LOW / MEDIUM` получает короткий доменный ответ, прозрачную карту тем и одну intervention-карточку.
+6. `HIGH` никогда не отправляется генеративной модели: UI показывает `112`, `111` и переход к человеку.
+
+## Функции для хакатонного демо
+
+- **Карта давления** показывает, какие темы уже появились в разговоре и какая активна сейчас. Это демонстрирует контекст без скрытой «магии» и позволяет заметить смену темы.
+- **Фокус-спринт 15 минут** превращает разговор об учебной перегрузке в конкретное действие: студент формулирует один шаг, запускает локальный таймер и не передаёт текст задачи на сервер.
+- **Контекстный мост** связывает новую тему с предыдущей. Например, переход от дедлайнов к одиночеству не сбрасывает разговор и не повторяет старый совет.
+- **Антиповтор** сравнивает новый ответ с предыдущим. Повторное вступление или почти тот же финальный вопрос отклоняются, после чего включается безопасный доменный fallback.
+- **Human handoff** предлагает готовое короткое сообщение доверенному человеку и проверенные номера `111`/`112` без попытки удержать пользователя внутри AI-чата.
 
 ## Архитектура
 
 ```mermaid
 flowchart LR
-  User[Сообщение пользователя] --> PII[PII scrubber]
-  PII --> Safety[Safety Engine]
-  Safety --> Risk[Детерминированный risk classifier]
-  Safety --> Intent[Intent classifier]
-  Risk --> Router[Safety router]
-  Intent --> Router
-  Router -->|LOW / MEDIUM| AI[HF Qwen3 provider]
-  AI --> Guard[Response contract + validation]
-  Guard --> Reply[Короткий безопасный ответ]
-  Router -->|HIGH| Crisis[Кризисный протокол]
-  Crisis --> Human[Проверенные human-support ресурсы]
-  AI -. provider failure .-> Fallback[Локальный сценарный fallback]
+  User[Student message] --> Validate[Body and session limits]
+  Validate --> PII[Phone/email scrubber]
+  PII --> Safety[Deterministic safety engine]
+  Safety --> Risk[LOW / MEDIUM / HIGH]
+  Safety --> Intent[Student-stress intents]
+  Intent --> Context[Conversation context and topic shift]
+  Risk -->|HIGH| Crisis[Human escalation only]
+  Crisis --> Resources[112 / 111 / trusted person]
+  Risk -->|LOW or MEDIUM| Limit[Upstash distributed rate limit]
+  Limit --> Provider[HF or OpenAI provider]
+  Context --> Provider
+  Provider --> Guard[Safety and repetition guard]
+  Guard --> Reply[2-4 sentences + one next step]
+  Reply --> Logs[Content-free runtime event]
+  Provider -. failure .-> Local[Deterministic local fallback]
 ```
 
-Ключевое инженерное решение: результат детерминированного HIGH-risk маршрута имеет приоритет над любой моделью. Полные диалоги MVP не сохраняет.
+Ключевой инвариант: `HIGH` является авторитетным решением локального router и не может быть понижен моделью. Клиентская история не передаётся как доверенные роли: API ограничивает её и преобразует в явно недоверенный transcript, чтобы снизить риск role spoofing и prompt injection. Короткие продолжения наследуют последнюю студенческую тему, явная смена темы получает детерминированный контекстный мост.
 
-## AI-интеграция
+## Узкий AI-контракт
 
-- Основная модель: `Qwen/Qwen3-8B` через OpenAI-compatible Hugging Face Router.
-- Fallback-модель: `Qwen/Qwen3-4B-Instruct-2507`.
-- `HF_TOKEN` используется только на сервере.
-- Для Qwen добавляется `/no_think`, а ответы проходят нормализацию и валидацию.
-- Ответ ограничен по длине, формату и клинической лексике.
-- При недоступности HF приложение использует локальные проверяемые сценарии.
+Модель работает только с такими темами:
 
-AI не диагностирует, не назначает лекарства, не обещает лечение и не создаёт зависимость от сервиса.
+- экзамены, сессия, оценки, дедлайны;
+- перегрузка, прокрастинация, сильная усталость;
+- адаптация к университету, колледжу, общежитию или новому городу;
+- одиночество, буллинг и конфликты в студенческой среде;
+- давление семьи или финансовые трудности, влияющие на учёбу.
+
+Формат ответа фиксирован: признать конкретное давление, предложить ровно один шаг на 5–15 минут и задать не более одного вопроса. Off-topic запрос получает короткую границу вместо ответа общего назначения.
+
+## Safety и приватность
+
+- Полные разговоры не записываются приложением и базы данных в MVP нет.
+- Сессия существует только в состоянии браузера; язык хранится в `localStorage`.
+- Email и телефон редактируются регулярными выражениями до внешнего AI-вызова.
+- Request body, session ID, history, output и время выполнения ограничены.
+- Ответы с reasoning-тегами, клинической или dependency-forming лексикой, повторным вступлением или почти тем же вопросом отклоняются; используется локальный fallback.
+- API-ответы имеют `Cache-Control: no-store`.
+- Production endpoint защищён атомарным Upstash rate limit; в Redis попадает только HMAC-хеш адреса с коротким TTL, без текста и session ID.
+- Runtime telemetry содержит request ID, latency, status, risk route, intent, provider/fallback, но не текст, session ID или IP.
+- OpenAI Responses API вызывается с `store: false` и session-scoped `safety_identifier`.
+- Ключи провайдеров доступны только server-side и никогда не имеют префикса `NEXT_PUBLIC_`.
+
+«Без аккаунта» не означает абсолютную анонимность: Vercel, сеть и внешний AI-провайдер могут обрабатывать технические метаданные, а regex scrubber не гарантирует полную деидентификацию свободного текста. Пользовательские документы доступны на `/privacy` и `/terms`; перед реальным пилотом их должен проверить юрист и владелец фактических provider-аккаунтов.
+
+Официальные ресурсы Казахстана, проверенные 21.07.2026:
+
+- `112` — [единый номер экстренной службы](https://www.gov.kz/situations/729/1519?lang=ru);
+- `111` — [круглосуточный конфиденциальный контакт-центр](https://www.gov.kz/situations/677/1457?lang=ru) по вопросам семьи, женщин и защиты прав детей, включая психологическую поддержку.
+
+Контакты необходимо перепроверять перед запуском и не реже одного раза в квартал.
 
 ## Технологический стек
 
-- Next.js App Router 15
-- React 19
-- TypeScript
-- Plain CSS, responsive mobile-first UI
-- Hugging Face Inference Providers
-- `lucide-react`
-- Детерминированные TypeScript safety-правила без базы данных
+- Next.js 15 App Router и Vercel Functions;
+- React 19;
+- TypeScript strict mode;
+- ESLint 9 flat config;
+- plain CSS, responsive UI, reduced-motion support;
+- Hugging Face Inference Providers: Qwen3 primary + fallback;
+- OpenAI Responses API как альтернативный provider;
+- Upstash Redis REST transaction для распределённого rate limit;
+- Vercel runtime logs с content-free structured events;
+- Node.js built-in runner для deterministic safety-evals;
+- GitHub Actions: lint, typecheck, safety-evals, production build.
 
-## Запуск локально
+## Структура
 
-Требуется Node.js 20+ и pnpm.
+```text
+src/app/api/chat/route.ts        API boundary, limits, no-store, routing
+src/app/api/health/route.ts      health check для deploy
+src/lib/privacy/                 PII scrubber
+src/lib/safety/                  risk, intent, intervention и routing
+src/lib/ai/prompts.ts            versionable student-stress contract
+src/lib/ai/provider.ts           HF/OpenAI adapters и output guard
+src/lib/ai/localScenarios.ts     deterministic provider fallback
+src/lib/config/runtime.ts        fail-closed production readiness
+src/lib/security/rateLimit.ts    distributed fixed-window limiter
+src/config/supportResources.ts   проверенные 112/111 и источники
+src/components/FirstStepApp.tsx  landing, consent, chat, exercises, support
+docs/evals/                      regression cases для safety gate
+scripts/run-safety-evals.mjs     локальный/CI eval runner
+docs/AI_QUALITY_AND_TUNING.md    eval-first и fine-tuning процесс
+src/app/privacy, terms/          пользовательские data/usage notices
+MVP_IMPROVEMENT_PLAN.md          приоритетный технический/product roadmap
+SECURITY.md                      security policy
+```
+
+## Локальный запуск
+
+Требования: Node.js 22–24, pnpm 10–11.
 
 ```powershell
-pnpm install --ignore-scripts
+pnpm install --frozen-lockfile --ignore-scripts
 Copy-Item .env.example .env.local
 pnpm dev
 ```
 
-Открыть `http://localhost:3000`.
-
-Если `pnpm` не найден:
-
-```powershell
-npm.cmd run dev
-```
+Открыть `http://localhost:3000`. Без ключей приложение остаётся полностью работоспособным на локальных сценариях.
 
 ## Переменные окружения
 
-```env
-HF_TOKEN=
-HF_BASE_URL=https://router.huggingface.co/v1
-HF_MODEL=Qwen/Qwen3-8B
-HF_FALLBACK_MODEL=Qwen/Qwen3-4B-Instruct-2507
-HF_TIMEOUT_MS=12000
-HF_MAX_TOKENS=240
+Hugging Face имеет приоритет, если задан `HF_TOKEN`. Если его нет, используется `AI_API_KEY`; если нет обоих — local fallback.
+
+| Переменная | Назначение | Значение по умолчанию |
+|---|---|---|
+| `HF_TOKEN` | server-side Hugging Face token | пусто |
+| `HF_BASE_URL` | OpenAI-compatible HF endpoint | `https://router.huggingface.co/v1` |
+| `HF_MODEL` | primary HF model или ваш endpoint model ID | `Qwen/Qwen3-8B` |
+| `HF_FALLBACK_MODEL` | fallback HF model | `Qwen/Qwen3-4B-Instruct-2507` |
+| `HF_TIMEOUT_MS` | timeout одного HF-вызова | `12000` |
+| `HF_MAX_TOKENS` | предел output tokens, сервер дополнительно ограничивает 80–320 | `240` |
+| `AI_API_KEY` | server-side OpenAI key | пусто |
+| `AI_BASE_URL` | OpenAI API base URL | `https://api.openai.com/v1` |
+| `AI_API_MODE` | `responses` или legacy `chat-completions`; для legacy укажите совместимый `AI_MODEL` | `responses` |
+| `AI_MODEL` | OpenAI model ID; pinned snapshot for reproducible evals | `gpt-5-mini-2025-08-07` |
+| `AI_TIMEOUT_MS` | timeout OpenAI-вызова | `14000` |
+| `AI_MAX_OUTPUT_TOKENS` | предел output tokens | `240` |
+| `UPSTASH_REDIS_REST_URL` | server-side Upstash REST endpoint | пусто |
+| `UPSTASH_REDIS_REST_TOKEN` | server-side token с правом `INCR/EXPIRE` | пусто |
+| `RATE_LIMIT_HASH_SECRET` | HMAC-соль длиной не менее 32 символов | пусто |
+| `RATE_LIMIT_MAX_REQUESTS` | запросов с одного сетевого адреса за окно | `12` |
+| `RATE_LIMIT_WINDOW_SECONDS` | размер fixed window | `60` |
+| `REQUIRE_PRODUCTION_CONTROLS` | принудительно включить fail-closed gate вне Vercel Production | `false` |
+| `PRIVACY_CONTACT_URL` | публичный конфиденциальный контакт оператора | GitHub Security Advisory |
+
+Не копируйте `.env.local` в Git и не используйте `NEXT_PUBLIC_HF_TOKEN`/`NEXT_PUBLIC_AI_API_KEY`.
+
+## Команды качества
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test:safety
+pnpm test:production-config
+pnpm check
+pnpm build
 ```
 
-Также поддерживается legacy OpenAI-compatible provider через `AI_API_KEY`. Если HF и legacy credentials пусты, приложение запускается на локальных сценариях.
+`pnpm check` объединяет ESLint, TypeScript и regression-набор safety gate. Production build запускается отдельно локально и в CI.
 
-### Секреты
+## API
 
-- `.env.local` игнорируется Git и не должен попадать в Pull Request.
-- Не использовать `NEXT_PUBLIC_HF_TOKEN` или другие client-side переменные для ключей.
-- При утечке ключ нужно отозвать и выпустить заново.
-- Не отправлять в публичный репозиторий сырые ответы CustDev с email, телефонами или именами.
+### `POST /api/chat`
 
-## Структура проекта
+Пример запроса:
 
-```text
-src/app/api/chat/route.ts       API boundary и safety response
-src/lib/privacy/                PII scrubbing
-src/lib/safety/                 risk, intent и routing
-src/lib/ai/                     HF provider, prompts и fallback
-src/components/FirstStepApp.tsx UI, onboarding, chat и support flow
-src/config/supportResources.ts  конфигурация human-support ресурсов
-public/                         generated hero animation и poster assets
-PITCH_DECK_TEXT.md              текст презентации и Q&A
-CUSTDEV_EVIDENCE.md             обезличенная выжимка результатов Google Form
-DEMO_RUNBOOK.md                 основной сценарий и план Б для защиты
+```json
+{
+  "message": "Я не могу начать курсовую, а дедлайн через три дня",
+  "sessionId": "9fb96aa2-e8d7-4c72-a7f2-bba9d9a6ab73",
+  "language": "ru",
+  "history": [
+    { "role": "user", "content": "Я устал из-за учёбы" },
+    { "role": "assistant", "content": "Что сейчас забирает больше всего сил?" }
+  ]
+}
 ```
 
-## Проверка перед демо
+Успешный ответ:
 
-Основной сценарий:
+```json
+{
+  "message": "Похоже, близкий дедлайн мешает даже начать. Открой документ и за 10 минут выпиши только три подзадачи. Какая часть курсовой сейчас самая неясная?",
+  "safety": {
+    "riskLevel": "LOW",
+    "intents": ["ACADEMIC_STRESS"],
+    "generationAllowed": true,
+    "route": "SAFE_SUPPORT",
+    "piiDetected": []
+  },
+  "intervention": { "type": "NEXT_STEP" },
+  "conversation": {
+    "primaryIntent": "ACADEMIC_STRESS",
+    "topics": ["ACADEMIC_STRESS"],
+    "topicShift": false,
+    "continuedFromContext": false,
+    "turnNumber": 2
+  },
+  "requestId": "0ff77ea4-2d8a-4d5f-876d-6dfb14740bb6"
+}
+```
 
-1. Отправить сообщение о тревоге после переезда или перед сессией.
-2. Показать `MEDIUM / ANXIETY` и одну intervention-карточку.
-3. Отправить `Я хочу умереть`.
-4. Показать `HIGH / HUMAN_ESCALATION` и объяснить, что AI не вызывается.
+### `GET /api/health`
 
-Перед защитой нужен отдельный скринкаст до 3 минут на случай проблем с интернетом или внешним AI-провайдером.
+Возвращает `200 status=ok`, когда обязательные production controls настроены. На Vercel Production без AI provider, Upstash URL/token или 32-символьного HMAC-секрета возвращает `503 status=not_ready` и имена отсутствующих checks без секретов. Endpoint не вызывает внешний AI, поэтому после него всё равно нужен provider smoke-test.
 
-## Исследование и презентация
+## Деплой на Vercel
 
-- [PITCH_DECK_TEXT.md](./PITCH_DECK_TEXT.md) — слайды, 4-минутный текст и ответы Q&A.
-- [CUSTDEV_EVIDENCE.md](./CUSTDEV_EVIDENCE.md) — обезличенные фактические результаты Google Form.
-- [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md) — пошаговое live-демо.
+Проект готов к стандартному Git-based deploy Next.js:
 
-CustDev проведён через Google Form: 14 ответов за 20–21.07.2026. В репозитории
-хранятся только агрегаты в `CUSTDEV_EVIDENCE.md`; исходный CSV с временными
-метками и свободными ответами не публикуется. Цифры в pitch deck основаны на
-этом экспорте и не являются доказательством клинической эффективности.
+1. Импортировать GitHub-репозиторий в Vercel.
+2. Оставить Framework Preset `Next.js` и Root Directory репозитория.
+3. Установить Node.js 22 в Project Settings.
+4. Добавить один набор server-side credentials: HF или OpenAI. Для Preview можно оставить ключи пустыми и проверить local fallback.
+5. Создать Upstash Redis и добавить `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, случайный `RATE_LIMIT_HASH_SECRET` длиной 32+ символа.
+6. Указать реальный `PRIVACY_CONTACT_URL` и перепроверить `/privacy`, `/terms`, регион/retention выбранного AI-provider аккаунта.
+7. Install command: `pnpm install --frozen-lockfile --ignore-scripts`; Build command: `pnpm build`.
+8. После deploy проверить `/api/health`, headers CSP/HSTS, LOW/MEDIUM сценарий, `429` при превышении лимита и HIGH-сценарий `Я хочу умереть`.
+
+`/api/chat` использует Node.js runtime и `maxDuration = 30`; один provider timeout не превышает 14 секунд, а две последовательные HF-попытки помещаются в function budget. Next.js на Vercel поддерживается без дополнительного adapter: [официальная документация Vercel](https://vercel.com/docs/frameworks/full-stack/nextjs), [настройка function duration](https://vercel.com/docs/functions/configuring-functions/duration).
+
+Кодовый rate limit, privacy notice и fail-closed readiness реализованы. Перед публичным университетским пилотом остаются независимые safety, accessibility, legal/data-protection reviews и проверка реальной Vercel/Upstash/AI конфигурации.
+
+## Fine-tuning
+
+Код уже позволяет переключить `HF_MODEL`/`HF_BASE_URL` на отдельный fine-tuned endpoint, но обучать модель на текущих сообщениях нельзя. Сначала нужны versioned taxonomy, экспертно проверенные RU/KK примеры, holdout, длинные safety-диалоги и измеримый baseline.
+
+Полный процесс, критерии запуска LoRA/SFT, формат данных и rollback описаны в [docs/AI_QUALITY_AND_TUNING.md](./docs/AI_QUALITY_AND_TUNING.md). Коротко: evals → prompt/few-shot → только затем fine-tuning, если он даёт измеримый выигрыш без safety-регрессии.
 
 ## Ограничения MVP
 
-- Keyword-based safety classifier не является клинически валидированной оценкой риска.
-- PII scrubber закрывает очевидные email и телефоны, но не гарантирует полную анонимизацию.
-- Human-support контакты должны быть проверены по официальным источникам перед публичным пилотом.
-- Внешний AI-провайдер получает очищенный текст LOW/MEDIUM сообщений; это нужно честно раскрывать пользователю.
-- Для реального пилота необходимы privacy, accessibility и safety review.
+- Keyword classifier не является клинически валидированной оценкой риска и может ошибаться на косвенных формулировках.
+- PII scrubber скрывает только очевидные email и телефоны.
+- Output guard — дополнительный слой, а не доказательство медицинской безопасности.
+- Нет независимого психологического, accessibility, legal и data-protection review.
+- Казахские тексты требуют отдельной проверки носителем языка и специалистом.
+- Внешний provider остаётся отдельным процессором очищенного текста LOW/MEDIUM сообщений.
+- Fine-tuning и клиническая эффективность не доказаны.
 
-## Лицензия и авторство
+## Roadmap
 
-Код и дизайн принадлежат команде проекта. Перед публикацией добавьте выбранную лицензию и имена участников команды, если это требуется формой хакатона.
+Приоритеты и Definition of Done находятся в [MVP_IMPROVEMENT_PLAN.md](./MVP_IMPROVEMENT_PLAN.md). Ближайшие обязательные шаги: реальные Upstash/provider deploy smokes, expert safety/legal/accessibility review и расширенный RU/KK red-team.
+
+## Материалы проекта
+
+- [CUSTDEV_EVIDENCE.md](./CUSTDEV_EVIDENCE.md) — обезличенные агрегаты CustDev;
+- [PITCH_DECK_TEXT.md](./PITCH_DECK_TEXT.md) — текст презентации и Q&A;
+- [DEMO_RUNBOOK.md](./DEMO_RUNBOOK.md) — сценарий live demo;
+- [SECURITY.md](./SECURITY.md) — правила работы с секретами и уязвимостями.
+- [TECHNICAL_REVIEW.md](./TECHNICAL_REVIEW.md) — полный технический аудит и статус findings.
+
+## Лицензия
+
+Репозиторий пока не содержит open-source лицензии. Код и дизайн нельзя считать автоматически доступными для повторного использования; перед публичной публикацией команда должна выбрать лицензию и указать авторов.

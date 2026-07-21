@@ -2,12 +2,19 @@
   "name": "firststep-mvp",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22 <25",
+    "pnpm": ">=10 <12"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit --incremental false",
+    "test:safety": "node --experimental-strip-types --no-warnings scripts/run-safety-evals.mjs",
+    "test:production-config": "node --experimental-strip-types --no-warnings scripts/run-production-config-evals.mjs",
+    "check": "eslint . --max-warnings=0 && tsc --noEmit --incremental false && node --experimental-strip-types --no-warnings scripts/run-safety-evals.mjs && node --experimental-strip-types --no-warnings scripts/run-production-config-evals.mjs"
   },
   "dependencies": {
     "next": "15.5.18",
