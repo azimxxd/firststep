@@ -121,6 +121,17 @@ docs/evals/                       safety-наборы
 
 Подробности: [техническое ревью](./TECHNICAL_REVIEW.md), [план развития MVP](./MVP_IMPROVEMENT_PLAN.md), [AI quality и fine-tuning](./docs/AI_QUALITY_AND_TUNING.md), [security policy](./SECURITY.md).
 
+## Материалы защиты (Tech Vision 2026, финал)
+
+| Файл | Что это |
+|---|---|
+| [DEMO_SCRIPT.md](./DEMO_SCRIPT.md) | сценарий на 4 минуты, план Б и подготовка к Q&A |
+| [docs/TVEP.html](./docs/TVEP.html) | технический паспорт проекта, ровно 3 страницы A4 |
+| [docs/PITCH_FINAL.html](./docs/PITCH_FINAL.html) | питч-дек на 7 слайдов 16:9 |
+| [CUSTDEV_EVIDENCE.md](./CUSTDEV_EVIDENCE.md) | обезличенные результаты CustDev |
+
+HTML-файлы свёрстаны под печать. Чтобы получить PDF: открыть файл в Chrome → `Ctrl+P` → «Сохранить как PDF» → в разделе «Ещё настройки» включить **фоновую графику** и выставить масштаб **100 %**. Размер страницы задан в самом файле через `@page`, менять его не нужно.
+
 ## Лицензия
 
 [MIT](./LICENSE) — разрешает использовать и развивать проект при сохранении уведомления об авторстве и отказа от гарантий.

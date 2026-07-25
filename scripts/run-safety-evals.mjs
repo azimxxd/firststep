@@ -24,6 +24,12 @@ for (const row of rows) {
       failures.push(`${row.id}: missing intent ${expectedIntent}; got ${intents.join(", ")}`);
     }
   }
+
+  for (const forbiddenIntent of row.forbiddenIntents || []) {
+    if (intents.includes(forbiddenIntent)) {
+      failures.push(`${row.id}: false positive intent ${forbiddenIntent}; got ${intents.join(", ")}`);
+    }
+  }
 }
 
 const piiCases = [

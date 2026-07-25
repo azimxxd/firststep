@@ -8,7 +8,7 @@ import {
   ShieldAlert, Timer, Wind,
 } from "lucide-react";
 import { supportResources } from "@/config/supportResources";
-import type { ChatResponse, ConversationContext, Intent, InterventionType, Language, RiskLevel } from "@/types/safety";
+import type { ChatResponse, ConversationContext, Intent, InterventionType, Language, RiskLevel, SafetyRoute } from "@/types/safety";
 import { FirstStepLogo } from "@/components/FirstStepLogo";
 
 type Screen = "landing" | "onboarding" | "chat" | "support";
@@ -154,6 +154,25 @@ const copy = {
     requestCancelled: "Ожидание остановлено. Сообщение можно отправить ещё раз.",
     requestTimedOut: "Ответ занял больше 20 секунд. Попробуй отправить сообщение ещё раз.",
     requestFailed: "Не удалось получить ответ. Попробуй ещё раз через несколько секунд.",
+    traceTitle: "Как обработано сообщение",
+    traceShow: "Показать детали",
+    traceHide: "Скрыть детали",
+    traceRisk: "Уровень риска",
+    traceRiskLow: "обычный",
+    traceRiskMedium: "повышенный",
+    traceRiskHigh: "высокий",
+    traceRoute: "Маршрут",
+    traceRouteSafe: "обычная поддержка",
+    traceRouteGentle: "бережная поддержка",
+    traceRouteHuman: "человеческая помощь",
+    traceModel: "Генеративная модель",
+    traceModelUsed: "вызвана, ответ проверен фильтром",
+    traceModelSkipped: "не вызывалась",
+    traceMasked: "Замаскировано перед отправкой",
+    traceMaskedNone: "маскировать было нечего",
+    tracePhone: "телефон",
+    traceEmail: "email",
+    traceNote: "Маршрут выбирает детерминированный роутер на сервере — до обращения к модели.",
   },
   kk: {
     eyebrow: "FIRSTSTEP · АНОНИМДІ ЧАТ",
@@ -293,6 +312,25 @@ const copy = {
     requestCancelled: "Күту тоқтатылды. Хабарламаны қайта жіберуге болады.",
     requestTimedOut: "Жауап 20 секундтан ұзаққа созылды. Хабарламаны қайта жіберіп көр.",
     requestFailed: "Қазір жауапты жүктеу мүмкін болмады. Бірнеше секундтан кейін қайта байқап көр.",
+    traceTitle: "Хабарлама қалай өңделді",
+    traceShow: "Толығырақ көрсету",
+    traceHide: "Толық мәліметті жасыру",
+    traceRisk: "Тәуекел деңгейі",
+    traceRiskLow: "қалыпты",
+    traceRiskMedium: "жоғарылаған",
+    traceRiskHigh: "жоғары",
+    traceRoute: "Бағыт",
+    traceRouteSafe: "қалыпты қолдау",
+    traceRouteGentle: "жұмсақ қолдау",
+    traceRouteHuman: "адам көмегі",
+    traceModel: "Генеративті модель",
+    traceModelUsed: "шақырылды, жауап сүзгіден өтті",
+    traceModelSkipped: "шақырылған жоқ",
+    traceMasked: "Жіберу алдында жасырылды",
+    traceMaskedNone: "жасыратын дерек болмады",
+    tracePhone: "телефон",
+    traceEmail: "email",
+    traceNote: "Бағытты сервердегі детерминды роутер таңдайды — модельге жүгінбес бұрын.",
   },
 } as const;
 
@@ -449,6 +487,7 @@ export default function FirstStepApp() {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [lastRisk, setLastRisk] = useState<RiskLevel | null>(null);
+  const [lastSafety, setLastSafety] = useState<ChatResponse["safety"] | null>(null);
   const [intervention, setIntervention] = useState<InterventionType | null>(null);
   const [conversation, setConversation] = useState<ConversationContext | null>(null);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
@@ -468,6 +507,7 @@ export default function FirstStepApp() {
     if (!agreed) return;
     setSessionId(newSessionId());
     setMessages([{ role: "ai", content: t("greeting") }]);
+    setLastSafety(null);
     setConversation(null);
     setRetryMessage(null);
     setScreen("chat");
@@ -499,6 +539,7 @@ export default function FirstStepApp() {
       if (!response.ok) throw new Error(payload.error || "Request failed");
       setMessages((current) => [...current, { role: "ai", content: payload.message }]);
       setLastRisk(payload.safety.riskLevel);
+      setLastSafety(payload.safety);
       setIntervention(payload.intervention?.type || null);
       setConversation(payload.conversation);
     } catch {
@@ -536,6 +577,7 @@ export default function FirstStepApp() {
     setSessionId("");
     setMessages([]);
     setLastRisk(null);
+    setLastSafety(null);
     setIntervention(null);
     setConversation(null);
     setRetryMessage(null);
@@ -561,7 +603,7 @@ export default function FirstStepApp() {
         {screen === "landing" && <Landing language={language} t={t} onStart={() => setScreen("onboarding")} onSupport={() => setScreen("support")} />}
         {screen === "onboarding" && <Onboarding language={language} t={t} agreed={agreed} setAgreed={setAgreed} onContinue={continueAnonymously} onBack={() => setScreen("landing")} />}
         {screen === "support" && <Support language={language} t={t} onBack={() => setScreen(sessionId ? "chat" : "landing")} />}
-        {screen === "chat" && <Chat language={language} t={t} messages={messages} input={input} setInput={setInput} pending={pending} sendMessage={sendMessage} cancelRequest={cancelRequest} riskLevel={lastRisk} intervention={intervention} setIntervention={setIntervention} conversation={conversation} retryMessage={retryMessage} onSupport={() => setScreen("support")} />}
+        {screen === "chat" && <Chat language={language} t={t} messages={messages} input={input} setInput={setInput} pending={pending} sendMessage={sendMessage} cancelRequest={cancelRequest} riskLevel={lastRisk} safety={lastSafety} intervention={intervention} setIntervention={setIntervention} conversation={conversation} retryMessage={retryMessage} onSupport={() => setScreen("support")} />}
       </div>
     </main>
   );
@@ -766,7 +808,7 @@ function Onboarding({ language, t, agreed, setAgreed, onContinue, onBack }: { la
   );
 }
 
-function Chat({ language, t, messages, input, setInput, pending, sendMessage, cancelRequest, riskLevel, intervention, setIntervention, conversation, retryMessage, onSupport }: { language: Language; t: (key: keyof typeof copy.ru) => string; messages: ChatMessage[]; input: string; setInput: (value: string) => void; pending: boolean; sendMessage: (message?: string) => Promise<void>; cancelRequest: () => void; riskLevel: RiskLevel | null; intervention: InterventionType | null; setIntervention: (value: InterventionType | null) => void; conversation: ConversationContext | null; retryMessage: string | null; onSupport: () => void }) {
+function Chat({ language, t, messages, input, setInput, pending, sendMessage, cancelRequest, riskLevel, safety, intervention, setIntervention, conversation, retryMessage, onSupport }: { language: Language; t: (key: keyof typeof copy.ru) => string; messages: ChatMessage[]; input: string; setInput: (value: string) => void; pending: boolean; sendMessage: (message?: string) => Promise<void>; cancelRequest: () => void; riskLevel: RiskLevel | null; safety: ChatResponse["safety"] | null; intervention: InterventionType | null; setIntervention: (value: InterventionType | null) => void; conversation: ConversationContext | null; retryMessage: string | null; onSupport: () => void }) {
   const [promptContext, setPromptContext] = useState<PromptContext>("initial");
   const [downloaded, setDownloaded] = useState(false);
   const [firstStepPickerOpen, setFirstStepPickerOpen] = useState(false);
@@ -907,6 +949,7 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ca
         <span className="sr-only" role="status" aria-live="polite">{downloaded ? t("chatDownloaded") : ""}</span>
         <div className="privacy-banner"><LockKeyhole size={14} /> {t("privacy")}</div>
         {conversation && conversation.topics.length > 0 && <aside className="context-map" aria-label={t("contextMap")}><span className="context-map-label"><Sparkles size={14} /> {t("contextMap")}</span><div className="context-topics">{conversation.topics.map((intent) => intentLabels[language][intent] && <span className={intent === conversation.primaryIntent ? "active" : ""} key={intent}>{intentLabels[language][intent]}</span>)}</div>{conversation.topicShift && <small>{t("contextShift")}</small>}</aside>}
+        {safety && <SafetyTrace safety={safety} t={t} />}
         <div className="messages" aria-live="polite">
           {messages.map((message, index) => <div className={`message-row ${message.role}`} key={`${message.role}-${index}`}><div className="avatar">{message.role === "ai" ? <Sparkles size={14} /> : t("userLabel")}</div><div className="message-bubble">{message.content}</div></div>)}
           {pending && <div className="message-row ai"><div className="avatar"><Sparkles size={14} /></div><div className="message-bubble pending-bubble"><span className="typing-dots" role="status" aria-label={t("loadingResponse")}><i /><i /><i /></span><button type="button" className="cancel-request" onClick={cancelRequest}>{t("cancelResponse")}</button></div></div>}
@@ -925,6 +968,49 @@ function Chat({ language, t, messages, input, setInput, pending, sendMessage, ca
         {tourOpen && typeof document !== "undefined" && createPortal(<><div className="tour-backdrop" aria-hidden="true" /><section ref={tourDialogRef} className={`product-tour tour-dialog-${activeTourStep.target}`} role="dialog" aria-modal="true" aria-labelledby="product-tour-title" aria-describedby="product-tour-description" tabIndex={-1}><div className="tour-topline"><span>{t("tourStep")} {tourStep + 1} / {tourSteps.length}</span><button type="button" onClick={closeTour}>{t("tourSkip")}</button></div><div className="tour-icon" aria-hidden="true"><CircleHelp size={20} /></div><span className="tour-eyebrow">{t("tourTitle")}</span><h2 id="product-tour-title">{activeTourStep.title}</h2><p id="product-tour-description" aria-live="polite">{activeTourStep.text}</p><div className="tour-progress" aria-hidden="true">{tourSteps.map((step, index) => <span className={index === tourStep ? "active" : ""} key={step.target} />)}</div><div className="tour-actions">{tourStep > 0 && <button type="button" className="secondary-button" onClick={() => setTourStep((value) => value - 1)}><ArrowLeft size={15} /> {t("tourBack")}</button>}<button type="button" className="primary-button" onClick={() => { if (tourStep === tourSteps.length - 1) closeTour(); else setTourStep((value) => value + 1); }}>{tourStep === tourSteps.length - 1 ? t("tourDone") : t("tourNext")} {tourStep < tourSteps.length - 1 && <ArrowRight size={15} />}</button></div></section></>, document.body)}
       </section>
     </div>
+  );
+}
+
+function SafetyTrace({ safety, t }: { safety: ChatResponse["safety"]; t: (key: keyof typeof copy.ru) => string }) {
+  const [open, setOpen] = useState(false);
+  const routeLabel: Record<SafetyRoute, string> = {
+    SAFE_SUPPORT: t("traceRouteSafe"),
+    GENTLE_SUPPORT: t("traceRouteGentle"),
+    HUMAN_ESCALATION: t("traceRouteHuman"),
+  };
+  const riskLabel: Record<RiskLevel, string> = {
+    LOW: t("traceRiskLow"),
+    MEDIUM: t("traceRiskMedium"),
+    HIGH: t("traceRiskHigh"),
+  };
+  const piiLabel = safety.piiDetected
+    .map((item) => (item === "PHONE" ? t("tracePhone") : item === "EMAIL" ? t("traceEmail") : item))
+    .join(", ");
+
+  return (
+    <section className={`safety-trace risk-${safety.riskLevel.toLowerCase()}`} aria-labelledby="safety-trace-title">
+      <div className="safety-trace-head">
+        <h2 id="safety-trace-title"><ShieldCheck size={14} /> {t("traceTitle")}</h2>
+        <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+          {open ? t("traceHide") : t("traceShow")}
+        </button>
+      </div>
+      <p className="safety-trace-summary">
+        <span className="safety-trace-route">{routeLabel[safety.route]}</span>
+        <span className={`safety-trace-model ${safety.generationAllowed ? "" : "skipped"}`}>
+          {t("traceModel")}: {safety.generationAllowed ? t("traceModelUsed") : t("traceModelSkipped")}
+        </span>
+      </p>
+      {open && (
+        <dl className="safety-trace-detail">
+          <div><dt>{t("traceRisk")}</dt><dd>{riskLabel[safety.riskLevel]}</dd></div>
+          <div><dt>{t("traceRoute")}</dt><dd>{routeLabel[safety.route]}</dd></div>
+          <div><dt>{t("traceModel")}</dt><dd>{safety.generationAllowed ? t("traceModelUsed") : t("traceModelSkipped")}</dd></div>
+          <div><dt>{t("traceMasked")}</dt><dd>{piiLabel || t("traceMaskedNone")}</dd></div>
+        </dl>
+      )}
+      {open && <small className="safety-trace-note">{t("traceNote")}</small>}
+    </section>
   );
 }
 
