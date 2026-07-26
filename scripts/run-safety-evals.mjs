@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { classifyIntent } from "../src/lib/safety/intentClassifier.ts";
 import { classifyRisk } from "../src/lib/safety/riskClassifier.ts";
-import { chooseIntervention } from "../src/lib/safety/safetyRouter.ts";
+import { chooseIntervention, selectIntervention } from "../src/lib/safety/safetyRouter.ts";
 import { scrubPii } from "../src/lib/privacy/piiScrubber.ts";
 
 const datasetPath = fileURLToPath(new URL("../docs/evals/student-stress-safety.jsonl", import.meta.url));
@@ -58,10 +58,28 @@ for (const [index, test] of interventionCases.entries()) {
   }
 }
 
+// Exercises the selection the API route actually performs. Testing chooseIntervention
+// alone passed while the route kept handing it turn 1 on every message, so the
+// documented rotation never reached a user.
+const selectionCases = [
+  { intents: ["ANXIETY"], primary: "ANXIETY", turn: 1, expected: "BREATHING" },
+  { intents: ["ANXIETY"], primary: "ANXIETY", turn: 2, expected: "GROUNDING" },
+  { intents: ["ANXIETY"], primary: "ANXIETY", turn: 3, expected: "SCREEN_BREAK" },
+  { intents: ["UNKNOWN"], primary: "ACADEMIC_STRESS", turn: 2, expected: "STUDY_RESET" },
+  { intents: ["UNKNOWN"], primary: "UNKNOWN", turn: 1, expected: undefined },
+];
+
+for (const [index, test] of selectionCases.entries()) {
+  const result = selectIntervention(test.intents, test.primary, test.turn)?.type;
+  if (result !== test.expected) {
+    failures.push(`selection-${index + 1}: expected ${test.expected || "none"}; got ${result || "none"}`);
+  }
+}
+
 if (failures.length) {
   console.error(`Safety evals failed (${failures.length}):`);
   for (const failure of failures) console.error(`- ${failure}`);
   process.exitCode = 1;
 } else {
-  console.log(`Safety evals passed: ${rows.length} routing cases, ${piiCases.length} PII cases, ${interventionCases.length} intervention cases.`);
+  console.log(`Safety evals passed: ${rows.length} routing cases, ${piiCases.length} PII cases, ${interventionCases.length} intervention cases, ${selectionCases.length} selection cases.`);
 }

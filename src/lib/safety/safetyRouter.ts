@@ -20,3 +20,17 @@ export function chooseIntervention(intents: Intent[], turnNumber = 1): { type: I
   const variantIndex = (Math.max(1, turnNumber) - 1) % variants.length;
   return { type: variants[variantIndex] };
 }
+
+/**
+ * Turn-aware intervention choice for a whole conversation.
+ *
+ * `classifyIntent` returns `["UNKNOWN"]` rather than an empty array, so callers
+ * must strip it before asking for an intervention — otherwise a short reply
+ * such as "да" carries no topic and yields nothing. The conversation's primary
+ * intent is folded in so those replies inherit the topic already being discussed.
+ */
+export function selectIntervention(intents: Intent[], primaryIntent: Intent, turnNumber: number) {
+  const candidates = intents.filter((intent) => intent !== "UNKNOWN");
+  if (primaryIntent !== "UNKNOWN" && !candidates.includes(primaryIntent)) candidates.push(primaryIntent);
+  return chooseIntervention(candidates, turnNumber);
+}
