@@ -4,7 +4,7 @@ import { getDeploymentReadiness } from "@/lib/config/runtime";
 import { scrubPii } from "@/lib/privacy/piiScrubber";
 import { analyzeMessage } from "@/lib/safety/safetyEngine";
 import { classifyIntent } from "@/lib/safety/intentClassifier";
-import { chooseIntervention } from "@/lib/safety/safetyRouter";
+import { selectIntervention } from "@/lib/safety/safetyRouter";
 import { checkChatRateLimit } from "@/lib/security/rateLimit";
 import type { ConversationContext, Intent, Language } from "@/types/safety";
 
@@ -203,12 +203,7 @@ export async function POST(request: Request) {
         route: analysis.route,
         piiDetected: analysis.piiDetected,
       },
-      intervention: analysis.generationAllowed && conversation.continuedFromContext
-        ? chooseIntervention(
-          analysis.intents.length > 0 ? analysis.intents : [conversation.primaryIntent],
-          conversation.turnNumber,
-        )
-        : analysis.intervention,
+      intervention: selectIntervention(analysis.intents, conversation.primaryIntent, conversation.turnNumber),
       conversation,
       requestId,
     }, 200, { ...requestHeaders, ...rateLimitHeaders });
